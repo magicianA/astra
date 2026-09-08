@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "purpose": "design research, not a normalized runtime catalog",
+  "files": [
+    {
+      "file": "hip2.dat.gz",
+      "source_url": "https://cdsarc.cds.unistra.fr/ftp/I/311/hip2.dat.gz",
+      "release_or_description": "Hipparcos-2 / CDS I/311",
+      "retrieved_on": "2026-09-04",
+      "bytes": 8977907,
+      "sha256": "8e624f843d4254a9b7c2e8dda8e3158dbe825bf98f6bf3dbbae7f0d0b73d6858",
+      "digest_origin": "locally_computed",
+      "uncompressed_bytes": 32673535,
+      "records": 117955,
+      "gzip_integrity": "passed"
+    },
+    {
+      "file": "hipparcos2-ReadMe.txt",
+      "source_url": "https://cdsarc.cds.unistra.fr/ftp/I/311/ReadMe",
+      "release_or_description": "Hipparcos-2 / CDS I/311",
+      "retrieved_on": "2026-09-04",
+      "bytes": 10375,
+      "sha256": "6c017925d658447d40983da3b459ba16bf9789c8f7573e263952c75692622499",
+      "digest_origin": "locally_computed"
+    },
+    {
+      "file": "bsc5-catalog.gz",
+      "source_url": "https://cdsarc.cds.unistra.fr/ftp/V/50/catalog.gz",
+      "release_or_description": "Bright Star Catalogue, 5th revised edition preliminary / CDS V/50",
+      "retrieved_on": "2026-09-04",
+      "bytes": 573921,
+      "sha256": "3dc44b1e90be8fbe5bcc7656032560f51275f985c7e3f783c9028e1838ec7bed",
+      "digest_origin": "locally_computed",
+      "uncompressed_bytes": 1704879,
+      "records": 9110,
+      "gzip_integrity": "passed"
+    },
+    {
+      "file": "bright-star-ReadMe.txt",
+      "source_url": "https://cdsarc.cds.unistra.fr/ftp/V/50/ReadMe",
+      "release_or_description": "Bright Star Catalogue / CDS V/50",
+      "retrieved_on": "2026-09-04",
+      "bytes": 11571,
+      "sha256": "44fd9c73e2eecad0beb47bdfa3f01c60fd43f93d6964198e31fcd48732de5b33",
+      "digest_origin": "locally_computed"
+    },
+    {
+      "file": "gaia-dr3-bright-sample.csv",
+      "source_url": "https://gea.esac.esa.int/tap-server/tap/sync",
+      "release_or_description": "Gaia DR3; exact ADQL in ../DATA_SOURCES.md",
+      "retrieved_on": "2026-09-04",
+      "bytes": 42936,
+      "sha256": "aeee463240a0af143fcbc055f2d6fc6793bd4cf75335c1006ed3b4623e8f88d7",
+      "digest_origin": "locally_computed",
+      "records": 200,
+      "columns": 18,
+      "missing_radial_velocity": 51,
+      "missing_parallax": 20
+    },
+    {
+      "file": "de441-tech-comments.txt",
+      "source_url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de441_tech-comments.txt",
+      "release_or_description": "DE441 technical comments",
+      "retrieved_on": "2026-09-04",
+      "bytes": 59453,
+      "sha256": "eda144896f7a09fd810c6261036d05d767ce8c77cb2b3795bc824fb623881007",
+      "digest_origin": "locally_computed"
+    },
+    {
+      "file": "jpl-spk-summaries.txt",
+      "source_url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/aa_summaries.txt",
+      "release_or_description": "NAIF SPK summaries",
+      "retrieved_on": "2026-09-04",
+      "bytes": 12911,
+      "sha256": "2b34f045b63731a6a315a83b1e2f240dd208a4b5a19ee3419be0573485c15f87",
+      "digest_origin": "locally_computed"
+    }
+  ]
+}

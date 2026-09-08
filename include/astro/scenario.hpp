@@ -1,0 +1,28 @@
+#pragma once
+#include "camera.hpp"
+#include "time.hpp"
+#include <filesystem>
+
+namespace astro {
+struct Scenario {
+    CivilDate date;
+    TimeScale scale = TimeScale::LocalMean;
+    double longitude = 116.4074, latitude = 39.9042, height = 45;
+    bool julian = false, override_delta_t = false;
+    double custom_delta_t = 69;
+    double azimuth = 180, elevation = 35, roll = 0, fov = default_camera_fov / rad, magnitude = 7;
+    bool atmosphere = true, ground = true, grid = false, labels = true;
+    ProjectionKind projection = ProjectionKind::Perspective;
+    bool milky_way = true;
+    double pressure = 1013.25, temperature = 15, extinction = .2, exposure = 1,
+           light_pollution = .08;
+    std::string location_name = "北京 Beijing";
+};
+
+void validate(const Scenario&);
+void save_scenario(const Scenario&,
+                   const std::filesystem::path&,
+                   const std::string& data_id = "",
+                   const TimeContext* observation = nullptr);
+Scenario load_scenario(const std::filesystem::path&, const std::string& expected_data_id = "");
+} // namespace astro

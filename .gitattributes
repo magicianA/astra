@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+# Runtime manifests check exact bytes, including line endings in source data.
+/data/** -text
+/docs/research/** -text
+
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.bsp filter=lfs diff=lfs merge=lfs -text
+*.exr filter=lfs diff=lfs merge=lfs -text
+*.gz filter=lfs diff=lfs merge=lfs -text
+*.icns filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text

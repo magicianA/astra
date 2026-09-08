@@ -1,0 +1,39 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+layout(location = 0) in vec2 local;
+layout(location = 1) flat in vec4 color;
+layout(location = 2) flat in vec4 shape;
+layout(location = 0) out vec4 outputColor;
+
+void main() {
+    vec2 footprint = fwidth(local);
+    vec2 uv = gl_FragCoord.xy / p.viewport.zw;
+    if (outsideFisheye(uv) || (p.moonGround.w > .5 && skyDirection(uv).z < 0.)) {
+        discard;
+    }
+    float rr = dot(local, local);
+    if (rr > 1.) {
+        discard;
+    }
+    if (shape.x < .5) {
+        // A fixed 0.5 logical-pixel sigma inside a six-sigma quad keeps bright
+        // stars compact. Include pixel coverage while preserving total energy
+        // during subpixel motion; the quad edge is far into the negligible tail.
+        const float baseVariance = 1. / 36.;
+        float variance = baseVariance + dot(footprint, footprint) / 24.;
+        float alpha = exp(-rr / (2. * variance)) * baseVariance / variance;
+        // Point sources add light without replacing the diffuse sky behind them.
+        outputColor = vec4(color.rgb * color.a * alpha, 0.);
+    } else {
+        float edge = 1. - smoothstep(.94, 1., sqrt(rr));
+        float z = sqrt(max(0., 1. - rr));
+        float ca = 2. * shape.y - 1.;
+        float sa = sqrt(max(0., 1. - ca * ca));
+        vec3 light = vec3(cos(shape.z) * sa, sin(shape.z) * sa, ca);
+        float illumination = shape.x < 1.5 ? 1. : max(0., dot(vec3(local.x, -local.y, z), light));
+        // Opaque unlit hemisphere masks stars; brightness variation is illumination.
+        float shade = shape.x < 1.5 ? (.75 + .25 * z) : (.008 + pow(illumination, .6));
+        outputColor = vec4(color.rgb * color.a * shade * edge, edge);
+    }
+}

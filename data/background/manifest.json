@@ -1,0 +1,19 @@
+{
+  "background_id": "nasa-gaia-dr2-diffuse-16k-v1",
+  "source_page": "https://svs.gsfc.nasa.gov/4851/",
+  "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/milkyway_2020_16k_gal.exr",
+  "source_sha256": "ee023f03e99466b3829117c15a001269ba32a3fecb6012d0b2d41f201c955351",
+  "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio; Ernie Wright. Gaia DR2: ESA/Gaia/DPAC.",
+  "license": "NASA media usage guidelines; underlying Gaia data acknowledgements apply",
+  "license_url": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+  "projection": "Galactic equirectangular; u = 0.5 - l/(2*pi), v = 0.5 - b/pi",
+  "dimensions": [
+    16384,
+    8192
+  ],
+  "processing": "Native 16384x8192, no spatial filtering except linear-light polar-row averages; linear EXR decoded, per-channel gain 16 and x/(1+x), sRGB8 PNG encoding; runtime linear-light mipmaps and optional 8x anisotropic filtering",
+  "limitations": "Gaia DR2 faint-star visualization with Hipparcos/Tycho foreground omitted; fixed distant background, not an evolving star catalogue or calibrated radiance; Gaia survey artefacts and source pixel resolution remain",
+  "runtime_sha256": {
+    "background/milky-way.png": "32c3fd8281fdbcd937860efbef1eee71c708324c4120a8274353a1ac21fadd76"
+  }
+}

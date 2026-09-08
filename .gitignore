@@ -1,0 +1,14 @@
+/build*/
+/dist/
+/third_party/
+/data/catalog/raw/
+*.partial
+/artifacts/
+*.DS_Store
+imgui.ini
+__pycache__/
+.codebase-memory/
+
+/.venv/
+/.ruff_cache/
+/.cache/

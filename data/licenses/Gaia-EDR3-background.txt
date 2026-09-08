@@ -1,0 +1,24 @@
+Gaia EDR3 all-sky colour map
+
+Copyright: ESA/Gaia/DPAC. Acknowledgement: A. Moitinho.
+Licensed under Creative Commons Attribution-ShareAlike 3.0 IGO:
+https://creativecommons.org/licenses/by-sa/3.0/igo/
+
+Source:
+https://www.esa.int/ESA_Multimedia/Images/2020/12/The_colour_of_the_sky_from_Gaia_s_Early_Data_Release_32
+
+This describes the archived Gaia EDR3 source and former background.
+The current background/milky-way.png uses NASA SVS data; see NASA-SVS-background.txt.
+The archived derived EDR3 map remains under the same CC BY-SA licence.
+Changes by the Astra project: use the native 4000x2000 high-resolution map;
+suppress compact stellar points with a 3-pixel median filter and longitude
+wrapping; average the polar rows. No Gaussian blur or upscaling is applied.
+Rendering builds linear-light mipmaps and applies restrained colour saturation,
+display brightness, atmospheric attenuation, and a time-dependent celestial
+orientation.
+No endorsement by ESA, Gaia, DPAC or A. Moitinho is implied.
+
+The map is a published visualization of integrated stellar brightness and colour,
+not a calibrated radiance map. Processing details and SHA-256 hashes are recorded
+in background/manifest.json. Its distant Galactic structure stays fixed in time;
+it does not simulate the evolution of the Galaxy, dust, or embedded sources.

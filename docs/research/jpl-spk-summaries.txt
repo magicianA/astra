@@ -1,0 +1,255 @@
+ 
+BRIEF -- Version 4.1.0, September 17, 2021 -- Toolkit Version N0067
+ 
+ 
+Summary for: de430.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1549 DEC 31 00:00:00.000            2650 JAN 25 00:00:00.000
+ 
+ 
+Summary for: de431_part-1.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        13201 B.C. MAY 07 00:00:41.184      1 A.D. JAN 01 00:00:41.184
+ 
+ 
+Summary for: de431_part-2.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1 A.D. JAN 01 00:00:41.184          17191 MAR 01 00:01:07.184
+ 
+ 
+Summary for: de432s.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1949 DEC 14 00:00:00.000            2050 JAN 02 00:00:00.000
+ 
+ 
+Summary for: de435.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1549 DEC 31 00:00:00.000            2650 JAN 25 00:00:00.000
+ 
+ 
+Summary for: de438.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1549 DEC 31 00:00:00.000            2650 JAN 25 00:00:00.000
+ 
+ 
+Summary for: de440.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1549 DEC 31 00:00:00.000            2650 JAN 25 00:00:00.000
+ 
+ 
+Summary for: de440s.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1849 DEC 26 00:00:00.000            2150 JAN 22 00:00:00.000
+ 
+ 
+Summary for: de441_part-1.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        13201 B.C. MAY 06 00:00:00.000      1969 JUL 30 00:00:00.000
+ 
+ 
+Summary for: de441_part-2.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1969 JUN 28 00:00:00.000            17191 MAR 15 00:00:00.000
+ 
+ 
+Summary for: de442.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1549 DEC 31 00:00:00.000            2650 JAN 25 00:00:00.000
+ 
+ 
+Summary for: de442s.bsp
+ 
+Bodies: MERCURY BARYCENTER (1) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        VENUS BARYCENTER (2) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        EARTH BARYCENTER (3) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MARS BARYCENTER (4) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        JUPITER BARYCENTER (5) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SATURN BARYCENTER (6) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        URANUS BARYCENTER (7) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        NEPTUNE BARYCENTER (8) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        PLUTO BARYCENTER (9) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        SUN (10) w.r.t. SOLAR SYSTEM BARYCENTER (0)
+        MERCURY (199) w.r.t. MERCURY BARYCENTER (1)
+        VENUS (299) w.r.t. VENUS BARYCENTER (2)
+        MOON (301) w.r.t. EARTH BARYCENTER (3)
+        EARTH (399) w.r.t. EARTH BARYCENTER (3)
+        Start of Interval (ET)              End of Interval (ET)
+        -----------------------------       -----------------------------
+        1849 DEC 26 00:00:00.000            2150 JAN 22 00:00:00.000
+ 

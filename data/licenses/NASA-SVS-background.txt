@@ -1,0 +1,28 @@
+NASA Deep Star Maps 2020 — Milky Way background, Galactic coordinates
+
+Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio.
+Visualization: Ernie Wright (USRA). Gaia DR2: ESA/Gaia/DPAC.
+Source: https://svs.gsfc.nasa.gov/4851/
+Original image:
+https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/milkyway_2020_16k_gal.exr
+The corrected Galactic-coordinate release is dated 4 January 2021.
+
+Media usage guidelines:
+https://www.nasa.gov/nasa-brand-center/images-and-media/
+Underlying Gaia data acknowledgements:
+https://www.cosmos.esa.int/web/gaia/credits
+
+The background is the published faint-star layer, with bright Hipparcos/Tycho
+foreground stars omitted by the source author. Astra preserves its native
+16384x8192 spatial sampling. Offline conversion decodes linear EXR, applies a
+per-channel display gain of 16 with x/(1+x) highlight compression, then encodes
+8-bit sRGB PNG. Only the two polar rows are spatially averaged, in linear light.
+There is no median filtering, sharpening, invented noise, AI detail or upscaling.
+The renderer adds linear-light mipmaps, optional anisotropic sampling, restrained
+colour saturation, display exposure, and atmospheric attenuation.
+
+This is a visualization, not absolute radiance or a time-evolving catalogue.
+Its faint stars and Galactic structure stay fixed; survey artefacts can remain.
+Dynamic foreground stars and Solar System bodies are rendered independently.
+Source and runtime SHA-256 hashes are in background/manifest.json.
+No endorsement by NASA, ESA, Gaia, DPAC or the source author is implied.

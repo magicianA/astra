@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "record_bytes": 96,
+  "counts": {
+    "gaia": 3059808,
+    "hipparcos": 27588,
+    "bsc_matches": 9069,
+    "duplicate_gaia_rows": 0
+  },
+  "positional_hip_matches": 19235,
+  "gaia_limit": 12,
+  "model": "ICRS optical astrometric parameters, original reference epoch; Gaia TCB",
+  "quality_bits": {
+    "rv_unknown": 1,
+    "distance_unknown": 2,
+    "pm_unknown": 4,
+    "multiple": 8,
+    "gaia": 16,
+    "low_quality": 32,
+    "position_match": 128
+  },
+  "uncertainty": "Runtime displays diagonal formal-error estimate; raw Gaia correlations retained in source CSV",
+  "stars_sha256": "c9afd6582b2fe17d34830c80cf463435be692c93064f1a9198ce9b61c5e3285d",
+  "runtime_sha256": {
+    "catalog/stars.bin": "c9afd6582b2fe17d34830c80cf463435be692c93064f1a9198ce9b61c5e3285d",
+    "catalog/names.json": "8d34b93d3f04ecc59bc2e81af9c58d2fff3bdd809b32e9a21690cd71e17c0d18",
+    "catalog/positional-matches.json": "d18bdc1712ce5bf8dbfeac20f84f7edfb8a82814aa9631c666640afbcaa08b81",
+    "time/cio.bin": "00b0dea72c618604604f025e76c837f9bda1214242a0459dfd1856af3c215743",
+    "time/finals2000A.all": "80119694522717471744a78b28bc872e998523f8b1e2007424f9cd08af7ac4c6",
+    "time/naif0012.tls": "678e32bdb5a744117a467cd9601cd6b373f0e9bc9bbde1371d5eee39600a039b",
+    "time/bulletin-c72.txt": "310e172eadacacca3adf92cb9bd646fcc0d6320e35e996a106d2644ede3b52f0",
+    "kernels/de441_part-1.bsp": "13757827f5db41b835a24bbd637488636ce79a8ca754062fed17844f7d5b618e",
+    "kernels/de441_part-2.bsp": "3abb17dae2d78dd34880377544aacb54892104a0d4462b322cb9f4454d4887f6"
+  },
+  "model_version": "astra-astrometry-v1",
+  "data_id": "astra-v1-1814526cd25c6cdda2d5",
+  "source_epoch": {
+    "Gaia": "J2016.0 TCB",
+    "Hipparcos": "J1991.25"
+  },
+  "snapshot_date": "2026-09-04"
+}

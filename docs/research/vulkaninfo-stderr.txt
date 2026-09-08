@@ -1,0 +1,2 @@
+WARNING: [Loader Message] Code 0 : env var 'VK_INSTANCE_LAYERS' defined and adding layers "VK_LAYER_KHRONOS_validation"
+WARNING: [Loader Message] Code 0 : env var 'VK_INSTANCE_LAYERS' defined and adding layers "VK_LAYER_KHRONOS_validation"
