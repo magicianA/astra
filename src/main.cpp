@@ -40,6 +40,11 @@ int main(int argc, char** argv) {
                 options.shaders = value();
             } else if (arg == "--validation") {
                 options.validation = true;
+            } else if (arg == "--language") {
+                options.language = parse_language(value());
+                if (!options.language) {
+                    throw std::invalid_argument("Supported UI languages: en, zh-CN");
+                }
             } else if (arg == "--frames") {
                 options.frames = std::stoi(value());
             } else if (arg == "--play-speed") {
@@ -73,7 +78,7 @@ int main(int argc, char** argv) {
             } else if (arg == "--help") {
                 std::cout << "Astra: --data DIR --scenario FILE --date YEAR-MM-DDTHH:MM:SS --year "
                              "YEAR --validation --frames N --play-speed RATE --screenshot FILE.png "
-                             "--smoke\n";
+                             "--smoke --language en|zh-CN\n";
                 return 0;
             } else {
                 throw std::invalid_argument("Unknown argument: " + arg);

@@ -5,7 +5,7 @@ English · [简体中文](README.zh-CN.md)
 A native **C++20 / SDL3 / Vulkan** desktop planetarium covering 10,000 years.
 Choose a location on Earth, an elevation, and a date and time to see the topocentric
 apparent positions of stars, the Sun, the Moon, and the seven other planets.
-On macOS, Vulkan runs on Metal through MoltenVK. The application interface is currently in Chinese.
+On macOS, Vulkan runs on Metal through MoltenVK. The interface supports **English and Simplified Chinese**.
 
 The supported interval is **−3000-01-01 through +7000-01-01, exclusive of the end date**,
 using astronomical year numbering and the proleptic Gregorian calendar by default.
@@ -93,6 +93,14 @@ The Earth-orientation snapshot is pinned to 2026-09-04; preserve the checked-in 
 when upstream files change.
 
 ## Explore the sky
+
+Open **View → Language / 语言** to switch between English and 简体中文 immediately.
+The first launch follows the system's preferred supported language, falling back to English.
+Your selection is saved in `ui-preferences.json` alongside the application's user settings.
+Changing language preserves the observing time, location, camera, selection, and playback.
+Search accepts both English and Chinese object names in either interface language.
+For a one-time launch override, use `--language en` or `--language zh-CN`; this does not
+overwrite your saved preference unless you change the language in the interface.
 
 Drag to look around, scroll to zoom, and click a celestial object for details. The left
 toolbar opens location, time, and display settings. Search is at the top; time stepping

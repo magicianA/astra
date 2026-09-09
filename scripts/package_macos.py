@@ -146,8 +146,10 @@ def package(build, destination):
     with plist_path.open("rb") as stream:
         plist = plistlib.load(stream)
     plist.update(
-        CFBundleDisplayName="Astra · 万年星空",
+        CFBundleDisplayName="Astra",
         CFBundleName="Astra",
+        CFBundleDevelopmentRegion="en",
+        CFBundleLocalizations=["en", "zh-Hans"],
         CFBundleShortVersionString="0.1.0",
         CFBundleVersion="1",
         NSHighResolutionCapable=True,

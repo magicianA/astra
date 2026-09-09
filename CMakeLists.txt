@@ -59,6 +59,7 @@ add_library(
     src/camera.cpp
     src/background.cpp
     src/image_mips.cpp
+    src/i18n.cpp
 )
 target_include_directories(
     astro_core
@@ -106,6 +107,16 @@ if(ASTRA_BUILD_APP)
             "${ASTRA_APP_ICON}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources
         )
         set_target_properties(astra PROPERTIES MACOSX_BUNDLE_ICON_FILE "Astra.icns")
+        foreach(language en zh-Hans)
+            set(LOCALIZED_INFO
+                "${CMAKE_SOURCE_DIR}/assets/macos/${language}.lproj/InfoPlist.strings"
+            )
+            target_sources(astra PRIVATE "${LOCALIZED_INFO}")
+            set_source_files_properties(
+                "${LOCALIZED_INFO}" PROPERTIES MACOSX_PACKAGE_LOCATION
+                                               "Resources/${language}.lproj"
+            )
+        endforeach()
     endif()
     find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
     foreach(shader sky.vert sky.frag stars.vert stars.frag tonemap.frag)
@@ -137,6 +148,9 @@ add_test(NAME camera_drag COMMAND camera_tests)
 add_executable(image_mips_tests tests/image_mips_tests.cpp)
 target_link_libraries(image_mips_tests PRIVATE astro_core)
 add_test(NAME image_mips COMMAND image_mips_tests)
+add_executable(i18n_tests tests/i18n_tests.cpp)
+target_link_libraries(i18n_tests PRIVATE astro_core)
+add_test(NAME i18n COMMAND i18n_tests)
 if(ASTRA_BUILD_APP)
     add_executable(text_tests tests/text_tests.cpp src/text.cpp)
     target_include_directories(text_tests PRIVATE include)

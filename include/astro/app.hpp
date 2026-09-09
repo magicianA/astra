@@ -1,9 +1,11 @@
 #pragma once
+#include "i18n.hpp"
 #include "scenario.hpp"
 #include <filesystem>
 
 namespace astro {
 struct AppOptions {
+    std::optional<Language> language;
     std::filesystem::path data = ASTRA_SOURCE_DATA, shaders, screenshot;
     Scenario scenario;
     bool validation = false, smoke = false;

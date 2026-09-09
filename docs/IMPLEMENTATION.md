@@ -243,6 +243,22 @@ Vulkan 上传完整的 15 层线性光 mipmap，按硬件能力使用最高 8× 
 到 60°。证据为 `artifacts/zoom-round-trip-*.jpg`、
 `artifacts/zoom-round-trip-image-comparison.json` 和 `artifacts/zoom-projection-return.jpg`。
 
+## 中英文界面
+
+显示面板提供 English / 简体中文切换，面板、天体名称、搜索结果、月球卡片、网格方向、
+状态提示和窗口标题即时更新。搜索始终接受中英文天体别名。翻译集中在 `astro::Translator`，
+不改变星表、场景文件或天文计算；未知第三方诊断保留原文。
+
+首次启动采用系统首个受支持的中英文偏好，否则使用英文。手动选择写入 SDL 用户数据目录的
+`ui-preferences.json`，后续启动优先恢复；`--language en|zh-CN` 仅覆盖当次启动。
+macOS 包含 `en.lproj` 与 `zh-Hans.lproj` 原生应用名称资源。
+
+五组 CTest 和格式检查通过；新增翻译键、格式参数、稳定控件 ID、双向名称、动态消息和
+偏好文件回归。macOS 实测两种语言的地点、时间和显示面板，中英文交叉搜索、播放中切换及
+重启恢复。英文 Vulkan 同步验证运行 363 帧，错误为 0，帧间隔中位数 16.74 ms、
+p95 25.00 ms；日志为 `artifacts/i18n-en-smoke.log`，界面对照为 `artifacts/i18n-*.jpg`。
+应用包签名验证通过；本次仍只验证 macOS。
+
 ## 与原始设计的差异及精度边界
 
 - 当前误差显示为位置与自行误差的对角近似；尚未实现完整协方差与距离/RV 不确定性传播。缺失参数和多星/低质量解明确标注。

@@ -168,7 +168,8 @@ bool over_ui(float x, float y) {
     return window != nullptr;
 }
 
-void draw_grid(const Camera& c, bool ground) {
+void draw_grid(const Camera& c, bool ground, Language language) {
+    const Translator tr{language};
     auto* draw = ImGui::GetBackgroundDrawList();
     auto line = [&](auto point, int count) {
         ScreenPoint prev;
@@ -206,7 +207,7 @@ void draw_grid(const Camera& c, bool ground) {
         auto p = c.project({sin(i * pi / 2), cos(i * pi / 2), .005});
         if (p.visible) {
             draw_moving_text(
-                *draw, {float(p.x - 16), float(p.y + 8)}, color(130, 197, 202, 200), labels[i]);
+                *draw, {float(p.x - 16), float(p.y + 8)}, color(130, 197, 202, 200), tr(labels[i]));
         }
     }
 }
@@ -318,10 +319,12 @@ void annotate(const SkySnapshot& sky,
               const Scenario& s,
               const Camera& c,
               uint64_t selected,
-              bool selected_body) {
+              bool selected_body,
+              Language language) {
+    const Translator tr{language};
     auto* draw = ImGui::GetBackgroundDrawList();
     if (s.grid) {
-        draw_grid(c, sky.scenario.ground);
+        draw_grid(c, sky.scenario.ground, language);
     }
     std::vector<ImVec2> occupied;
     auto label = [&](const Object& source, bool force) {
@@ -352,6 +355,7 @@ void annotate(const SkySnapshot& sky,
         occupied.push_back({float(p.x), float(p.y)});
         std::string name =
             o.body ? body_name(o.body) : engine.catalog.name(engine.catalog.stars[o.catalog_index]);
+        name = tr(name.c_str());
         const float disk_radius = float(o.angular_radius * c.prepare().maximum_scale(p));
         ImVec2 pos{float(p.x) + std::max(9.f, disk_radius + 15), float(p.y - 8)};
         draw_moving_text(*draw, {pos.x + 1, pos.y + 1}, color(0, 0, 0, 180), name.c_str());
@@ -395,8 +399,24 @@ int run_app(const AppOptions& options) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         throw std::runtime_error(SDL_GetError());
     }
+    char* pref = SDL_GetPrefPath("Astra", "Sky");
+    const std::filesystem::path user = pref ? pref : ".";
+    SDL_free(pref);
+    Language language = Language::English;
+    if (auto** locales = SDL_GetPreferredLocales(nullptr)) {
+        for (int i = 0; locales[i]; ++i) {
+            if (auto supported = parse_language(locales[i]->language)) {
+                language = *supported;
+                break;
+            }
+        }
+        SDL_free(locales);
+    }
+    language = options.language.value_or(load_language(user / "ui-preferences.json", language));
+    Translator tr{language};
+    std::cout << "UI language: " << language_code(language) << std::endl;
     SDL_Window* window =
-        SDL_CreateWindow("Astra · 万年星空",
+        SDL_CreateWindow(tr("Astra · 万年星空"),
                          1440,
                          900,
                          SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
@@ -443,6 +463,7 @@ int run_app(const AppOptions& options) {
             Scenario scene = options.scenario;
             worker.request(scene);
             UiState ui;
+            ui.language = language;
             ui.pending_shot = options.screenshot;
             if (options.playback_speed != 0) {
                 ui.playing = true;
@@ -497,9 +518,6 @@ int run_app(const AppOptions& options) {
                 scene.roll = camera.roll / rad;
                 track = false;
             };
-            char* pref = SDL_GetPrefPath("Astra", "Sky");
-            std::filesystem::path user = pref ? pref : ".";
-            SDL_free(pref);
             while (!quit) {
                 auto current = std::chrono::steady_clock::now();
                 double dt = std::chrono::duration<double>(current - last).count(),
@@ -760,7 +778,8 @@ int run_app(const AppOptions& options) {
                 }
 
                 if (sky && engine) {
-                    annotate(*sky, *stars, *engine, scene, camera, selected, selected_body);
+                    annotate(
+                        *sky, *stars, *engine, scene, camera, selected, selected_body, ui.language);
                 }
                 if (panels) {
                     auto actions = draw_ui(ui,
@@ -775,9 +794,18 @@ int run_app(const AppOptions& options) {
                                             stars.get()});
                     request |= actions.recompute;
                     seek_moon = actions.seek_moon;
+                    if (actions.language_changed) {
+                        tr.language = ui.language;
+                        SDL_SetWindowTitle(window, tr("Astra · 万年星空"));
+                        try {
+                            save_language(user / "ui-preferences.json", ui.language);
+                        } catch (const std::exception& error) {
+                            notice = error.what();
+                        }
+                    }
                 } else {
                     auto* draw = ImGui::GetForegroundDrawList();
-                    draw->AddText({24, 22}, color(214, 199, 161), "A S T R A   /   H 显示面板");
+                    draw->AddText({24, 22}, color(214, 199, 161), tr("A S T R A   /   H 显示面板"));
                 }
                 if (!error.empty() || !notice.empty() || !status.empty() ||
                     (sky && sky->time.extrapolated)) {
@@ -788,20 +816,24 @@ int run_app(const AppOptions& options) {
                                  nullptr,
                                  fixed | ImGuiWindowFlags_AlwaysAutoResize |
                                      ImGuiWindowFlags_NoFocusOnAppearing);
+                    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + std::min(600.f, width - 80.f));
                     if (!error.empty()) {
-                        ImGui::TextColored(rgba(244, 161, 136), "%s", error.c_str());
+                        ImGui::PushStyleColor(ImGuiCol_Text, rgba(244, 161, 136));
+                        ImGui::TextWrapped("%s", tr.message(error).c_str());
+                        ImGui::PopStyleColor();
                     } else if (!status.empty()) {
-                        ImGui::TextUnformatted(status.c_str());
+                        ImGui::TextWrapped("%s", tr.message(status).c_str());
                     } else if (!notice.empty()) {
-                        ImGui::TextUnformatted(notice.c_str());
-                        if (ImGui::SmallButton("关闭")) {
+                        ImGui::TextWrapped("%s", tr.message(notice).c_str());
+                        if (ImGui::SmallButton(tr("关闭"))) {
                             notice.clear();
                         }
                     } else if (sky) {
                         ImGui::TextColored(rgba(235, 197, 128),
-                                           "长期外推 · ΔT %.1f 秒 · 误差范围未知",
+                                           tr("长期外推 · ΔT %.1f 秒 · 误差范围未知"),
                                            sky->time.delta_t_seconds);
                     }
+                    ImGui::PopTextWrapPos();
                     ImGui::End();
                 }
                 if (request || seek_moon) {

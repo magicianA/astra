@@ -1,5 +1,6 @@
 #pragma once
 
+#include "i18n.hpp"
 #include "sky.hpp"
 #include <imgui.h>
 
@@ -7,6 +8,7 @@ namespace astro {
 enum class UiPanel { None, Location, Time, Display, Search };
 
 struct UiState {
+    Language language = Language::English;
     UiPanel panel = UiPanel::None;
     bool visible = true, playing = false, track = false, selected_body = false;
     bool shot_done = false;
@@ -31,6 +33,7 @@ struct UiFrame {
 
 struct UiActions {
     bool recompute = false, seek_moon = false;
+    bool language_changed = false;
 };
 
 void initialize_ui_style();

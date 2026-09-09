@@ -89,6 +89,7 @@ void step_time(UiState& state, Scenario& scene, UiActions& actions, double secon
 }
 
 void draw_header(UiState& state, const UiFrame& frame) {
+    const Translator tr{state.language};
     auto* draw = ImGui::GetBackgroundDrawList();
     const ImU32 gold = ImGui::ColorConvertFloat4ToU32(accent);
     draw->AddCircle({43, 43}, 16, gold, 48, 1.2f);
@@ -100,18 +101,23 @@ void draw_header(UiState& state, const UiFrame& frame) {
                   {80, 21},
                   IM_COL32(237, 235, 228, 255),
                   "A S T R A");
-    draw->AddText({82, 53}, IM_COL32(141, 151, 164, 255), "万年星空");
+    draw->AddText({82, 53}, IM_COL32(141, 151, 164, 255), tr("万年星空"));
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{14, 9});
-    window("observer-pill", (frame.width - 350.f) / 2, 24, 350, 58);
-    if (ImGui::InvisibleButton("open-observer", {100, 38})) {
+    window("observer-pill", (frame.width - 400.f) / 2, 24, 400, 58);
+    if (ImGui::InvisibleButton("open-observer", {150, 38})) {
         toggle(state, UiPanel::Location);
     }
     auto p = ImGui::GetItemRectMin();
-    auto name = frame.scene.location_name.substr(0, frame.scene.location_name.find(' '));
+    auto name = std::string(tr(frame.scene.location_name.c_str()));
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", name.c_str());
+    }
     auto* foreground = ImGui::GetWindowDrawList();
-    foreground->AddText(p, ImGui::GetColorU32(ImGuiCol_TextDisabled), "观察地点");
+    foreground->PushClipRect(p, {p.x + 150, p.y + 38}, true);
+    foreground->AddText(p, ImGui::GetColorU32(ImGuiCol_TextDisabled), tr("观察地点"));
     foreground->AddText({p.x, p.y + 20}, ImGui::GetColorU32(ImGuiCol_Text), name.c_str());
+    foreground->PopClipRect();
     ImGui::SameLine();
     if (ImGui::InvisibleButton("open-time", {208, 38})) {
         toggle(state, UiPanel::Time);
@@ -130,7 +136,7 @@ void draw_header(UiState& state, const UiFrame& frame) {
     window("search-pill", frame.width - 274.f, 24, 250, 48);
     ImGui::SetNextItemWidth(-1);
     if (ImGui::InputTextWithHint(
-            "##search", "搜索天体 / HIP 编号", state.search, sizeof(state.search))) {
+            "##search", tr("搜索天体 / HIP 编号"), state.search, sizeof(state.search))) {
         state.panel = state.search[0] ? UiPanel::Search : UiPanel::None;
     }
     ImGui::End();
@@ -170,19 +176,21 @@ void rail_button(UiState& state, UiPanel panel, const char* label, int icon) {
 }
 
 void draw_rail(UiState& state) {
+    const Translator tr{state.language};
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{8, 8});
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{0, 4});
     window("tools", 24, 112, 64, 216);
-    rail_button(state, UiPanel::Location, "地点", 0);
-    rail_button(state, UiPanel::Time, "时间", 1);
-    rail_button(state, UiPanel::Display, "显示", 2);
+    rail_button(state, UiPanel::Location, tr("地点"), 0);
+    rail_button(state, UiPanel::Time, tr("时间"), 1);
+    rail_button(state, UiPanel::Display, tr("显示"), 2);
     ImGui::End();
     ImGui::PopStyleVar(2);
 }
 
 void draw_location(UiState& state, const UiFrame& frame, UiActions& actions) {
+    const Translator tr{state.language};
     auto& scene = frame.scene;
-    ImGui::TextDisabled("选择一处地点，或输入地理坐标");
+    ImGui::TextDisabled("%s", tr("选择一处地点，或输入地理坐标"));
     ImGui::Spacing();
     const char* places[] = {"北京 Beijing",
                             "上海 Shanghai",
@@ -199,9 +207,9 @@ void draw_location(UiState& state, const UiFrame& frame, UiActions& actions) {
                                 {0, 90, 0},
                                 {0, -90, 0}};
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::BeginCombo("##place", scene.location_name.c_str())) {
+    if (ImGui::BeginCombo("##place", tr(scene.location_name.c_str()))) {
         for (int i = 0; i < 7; ++i) {
-            if (ImGui::Selectable(places[i])) {
+            if (ImGui::Selectable(tr(places[i]))) {
                 scene.longitude = coords[i][0];
                 scene.latitude = coords[i][1];
                 scene.height = coords[i][2];
@@ -211,28 +219,28 @@ void draw_location(UiState& state, const UiFrame& frame, UiActions& actions) {
         }
         ImGui::EndCombo();
     }
-    ImGui::TextDisabled("经度 / 东经为正");
+    ImGui::TextDisabled("%s", tr("经度 / 东经为正"));
     ImGui::SetNextItemWidth(-1);
     if (ImGui::InputDouble("##longitude", &scene.longitude, 0, 0, "%.4f°")) {
         scene.location_name = "自定义坐标";
         actions.recompute = true;
     }
-    ImGui::TextDisabled("纬度 / 北纬为正");
+    ImGui::TextDisabled("%s", tr("纬度 / 北纬为正"));
     ImGui::SetNextItemWidth(-1);
     if (ImGui::InputDouble("##latitude", &scene.latitude, 0, 0, "%.4f°")) {
         scene.location_name = "自定义坐标";
         actions.recompute = true;
     }
-    ImGui::TextDisabled("海拔 / 米");
+    ImGui::TextDisabled("%s", tr("海拔 / 米"));
     ImGui::SetNextItemWidth(-1);
     actions.recompute |= ImGui::InputDouble("##height", &scene.height, 0, 0, "%.0f m");
     ImGui::Spacing();
-    if (ImGui::Button("收藏地点", {126, 36})) {
+    if (ImGui::Button(tr("收藏地点"), {126, 36})) {
         save_scenario(scene, frame.user / "favorite.json");
         state.notice = "地点已收藏";
     }
     ImGui::SameLine();
-    if (ImGui::Button("恢复收藏", {126, 36})) {
+    if (ImGui::Button(tr("恢复收藏"), {126, 36})) {
         auto saved = load_scenario(frame.user / "favorite.json");
         scene.longitude = saved.longitude;
         scene.latitude = saved.latitude;
@@ -243,16 +251,17 @@ void draw_location(UiState& state, const UiFrame& frame, UiActions& actions) {
 }
 
 void draw_time(UiState& state, const UiFrame& frame, UiActions& actions) {
+    const Translator tr{state.language};
     auto& scene = frame.scene;
-    ImGui::TextDisabled("公元 2000 年 · 前后各 5000 年");
+    ImGui::TextDisabled("%s", tr("公元 2000 年 · 前后各 5000 年"));
     ImGui::Spacing();
-    ImGui::TextDisabled("天文年 / 含公元 0 年");
+    ImGui::TextDisabled("%s", tr("天文年 / 含公元 0 年"));
     ImGui::SetNextItemWidth(-1);
     ImGui::InputInt("##year", &scene.date.year, 0, 0);
     if (scene.date.year <= 0) {
-        ImGui::TextColored(accent, "公元前 %d 年", 1 - scene.date.year);
+        ImGui::TextColored(accent, tr("公元前 %d 年"), 1 - scene.date.year);
     }
-    ImGui::TextDisabled("月 / 日          时 / 分");
+    ImGui::TextDisabled("%s", tr("月 / 日          时 / 分"));
     int md[] = {scene.date.month, scene.date.day};
     int hm[] = {scene.date.hour, scene.date.minute};
     ImGui::SetNextItemWidth(124);
@@ -266,25 +275,25 @@ void draw_time(UiState& state, const UiFrame& frame, UiActions& actions) {
         scene.date.hour = hm[0];
         scene.date.minute = hm[1];
     }
-    ImGui::TextDisabled("时间标准");
+    ImGui::TextDisabled("%s", tr("时间标准"));
     int scale = int(scene.scale);
-    const char* scales[] = {"UT1 · 地球自转时",
-                            "TT · 地球时",
-                            "TDB · 历表时",
-                            "UTC · 现代民用时",
-                            "LMT · 当地平太阳时"};
+    const char* scales[] = {tr("UT1 · 地球自转时"),
+                            tr("TT · 地球时"),
+                            tr("TDB · 历表时"),
+                            tr("UTC · 现代民用时"),
+                            tr("LMT · 当地平太阳时")};
     ImGui::SetNextItemWidth(-1);
     if (ImGui::Combo("##scale", &scale, scales, 5)) {
         scene.scale = TimeScale(scale);
     }
-    ImGui::Checkbox("使用儒略历", &scene.julian);
-    if (primary("前往这个时刻", {164, 38})) {
+    ImGui::Checkbox(tr("使用儒略历"), &scene.julian);
+    if (primary(tr("前往这个时刻"), {164, 38})) {
         scene.date.second = 0;
         state.playing = false;
         actions.recompute = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("现在", {88, 38})) {
+    if (ImGui::Button(tr("现在"), {88, 38})) {
         std::time_t now = std::time(nullptr);
         auto* time = std::gmtime(&now);
         scene.date = {time->tm_year + 1900,
@@ -301,10 +310,10 @@ void draw_time(UiState& state, const UiFrame& frame, UiActions& actions) {
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
-    ImGui::TextDisabled("穿越一万年");
+    ImGui::TextDisabled("%s", tr("穿越一万年"));
     ImGui::SetNextItemWidth(-1);
     int year = scene.date.year;
-    if (ImGui::SliderInt("##millennia", &year, -3000, 6999, "%d 年")) {
+    if (ImGui::SliderInt("##millennia", &year, -3000, 6999, tr("%d 年"))) {
         scene.date.year = year;
         if (scene.scale == TimeScale::UTC && (year < 1973 || year >= 2027)) {
             scene.scale = TimeScale::UT1;
@@ -319,75 +328,91 @@ void draw_time(UiState& state, const UiFrame& frame, UiActions& actions) {
 }
 
 void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
+    const Translator tr{state.language};
     auto& scene = frame.scene;
-    actions.recompute |= ImGui::Checkbox("大气与晨昏", &scene.atmosphere);
+    ImGui::TextDisabled("Language / 语言");
+    ImGui::SetNextItemWidth(-1);
+    int language = int(state.language);
+    const char* languages[] = {"English", "简体中文"};
+    if (ImGui::Combo("##language", &language, languages, 2)) {
+        state.language = Language(language);
+        actions.language_changed = true;
+    }
+    ImGui::Spacing();
+    actions.recompute |= ImGui::Checkbox(tr("大气与晨昏"), &scene.atmosphere);
     ImGui::SameLine(162);
-    actions.recompute |= ImGui::Checkbox("地面", &scene.ground);
-    ImGui::Checkbox("天体名称", &scene.labels);
+    actions.recompute |= ImGui::Checkbox(tr("地面"), &scene.ground);
+    ImGui::Checkbox(tr("天体名称"), &scene.labels);
     ImGui::SameLine(162);
-    ImGui::Checkbox("坐标网", &scene.grid);
-    ImGui::Checkbox("银河光带", &scene.milky_way);
-    ImGui::TextDisabled("天空投影");
+    ImGui::Checkbox(tr("坐标网"), &scene.grid);
+    ImGui::Checkbox(tr("银河光带"), &scene.milky_way);
+    ImGui::TextDisabled("%s", tr("天空投影"));
     constexpr std::array modes{
         ProjectionKind::Perspective, ProjectionKind::Stereographic, ProjectionKind::Fisheye};
     int mode = int(std::find(modes.begin(), modes.end(), scene.projection) - modes.begin());
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::Combo("##projection", &mode, "直线透视\0球面广角（保角）\0全天鱼眼\0")) {
+    const char* projections[] = {tr("直线透视"), tr("球面广角（保角）"), tr("全天鱼眼")};
+    if (ImGui::Combo("##projection", &mode, projections, 3)) {
         scene.projection = modes[mode];
         scene.fov = scene.projection == ProjectionKind::Fisheye
                         ? 180
                         : std::min(scene.fov, maximum_zoom_fov(scene.projection) / rad);
         state.track = false;
     }
-    if (ImGui::Button("恢复水平  R", {-1, 32})) {
+    if (ImGui::Button(tr("恢复水平  R"), {-1, 32})) {
         scene.roll = 0;
     }
     ImGui::Spacing();
-    ImGui::TextDisabled("可见恒星 / 星等上限");
+    ImGui::TextDisabled("%s", tr("可见恒星 / 星等上限"));
     float magnitude = float(scene.magnitude);
     ImGui::SetNextItemWidth(-1);
     if (ImGui::SliderFloat("##magnitude", &magnitude, 2, 12, "%.1f")) {
         scene.magnitude = magnitude;
         actions.recompute = true;
     }
-    ImGui::TextDisabled("曝光");
+    ImGui::TextDisabled("%s", tr("曝光"));
     float exposure = float(scene.exposure);
     ImGui::SetNextItemWidth(-1);
     if (ImGui::SliderFloat("##exposure", &exposure, .1f, 4, "%.1f")) {
         scene.exposure = exposure;
     }
-    if (ImGui::CollapsingHeader("大气与时间模型")) {
-        ImGui::SetNextItemWidth(160);
-        actions.recompute |= ImGui::InputDouble("气压 hPa", &scene.pressure, 0, 0, "%.1f");
-        ImGui::SetNextItemWidth(160);
-        actions.recompute |= ImGui::InputDouble("温度 °C", &scene.temperature, 0, 0, "%.1f");
+    if (ImGui::CollapsingHeader(tr("大气与时间模型###models"))) {
+        ImGui::TextDisabled("%s", tr("气压 hPa"));
+        ImGui::SetNextItemWidth(-1);
+        actions.recompute |= ImGui::InputDouble("##pressure", &scene.pressure, 0, 0, "%.1f");
+        ImGui::TextDisabled("%s", tr("温度 °C"));
+        ImGui::SetNextItemWidth(-1);
+        actions.recompute |= ImGui::InputDouble("##temperature", &scene.temperature, 0, 0, "%.1f");
         float pollution = float(scene.light_pollution);
-        ImGui::SetNextItemWidth(160);
-        if (ImGui::SliderFloat("光污染", &pollution, 0, 1)) {
+        ImGui::TextDisabled("%s", tr("光污染"));
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::SliderFloat("##pollution", &pollution, 0, 1)) {
             scene.light_pollution = pollution;
             actions.recompute = true;
         }
-        actions.recompute |= ImGui::Checkbox("自定义 ΔT", &scene.override_delta_t);
+        actions.recompute |= ImGui::Checkbox(tr("自定义 ΔT"), &scene.override_delta_t);
         if (scene.override_delta_t) {
-            ImGui::SetNextItemWidth(160);
-            actions.recompute |= ImGui::InputDouble("ΔT 秒", &scene.custom_delta_t, 0, 0, "%.3f");
+            ImGui::TextDisabled("%s", tr("ΔT 秒"));
+            ImGui::SetNextItemWidth(-1);
+            actions.recompute |=
+                ImGui::InputDouble("##delta-t", &scene.custom_delta_t, 0, 0, "%.3f");
         }
     }
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
-    if (ImGui::Button("保存场景", {126, 36})) {
+    if (ImGui::Button(tr("保存场景"), {126, 36})) {
         save_scenario(scene, frame.user / "scene.json", frame.sky ? frame.sky->data_id : "");
         state.notice = "场景已保存";
     }
     ImGui::SameLine();
-    if (ImGui::Button("载入场景", {126, 36})) {
+    if (ImGui::Button(tr("载入场景"), {126, 36})) {
         scene = load_scenario(frame.user / "scene.json", frame.sky ? frame.sky->data_id : "");
         state.track = false;
         state.playing = false;
         actions.recompute = true;
     }
-    if (ImGui::Button("导出 PNG + 场景", {-1, 36})) {
+    if (ImGui::Button(tr("导出 PNG + 场景"), {-1, 36})) {
         state.pending_shot = frame.user / ("astra-" + std::to_string(std::time(nullptr)) + ".png");
         state.shot_done = false;
         state.playing = false;
@@ -396,14 +421,15 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
 }
 
 void draw_drawer(UiState& state, const UiFrame& frame, UiActions& actions) {
+    const Translator tr{state.language};
     if (state.panel == UiPanel::None || state.panel == UiPanel::Search) {
         return;
     }
-    const float drawer_height = state.panel == UiPanel::Display ? 610.f : 550.f;
+    const float drawer_height = state.panel == UiPanel::Display ? 680.f : 550.f;
     window("settings", 102, 112, 300, std::min(drawer_height, frame.height - 240.f));
-    const char* title = state.panel == UiPanel::Location ? "观察地点"
-                        : state.panel == UiPanel::Time   ? "日期与时间"
-                                                         : "天空与显示";
+    const char* title = state.panel == UiPanel::Location ? tr("观察地点")
+                        : state.panel == UiPanel::Time   ? tr("日期与时间")
+                                                         : tr("天空与显示");
     heading(title, frame.title);
     ImGui::SameLine(252);
     if (ImGui::SmallButton("×")) {
@@ -448,14 +474,13 @@ void moon_preview(ImDrawList* draw, ImVec2 center, float radius, double phase, d
 }
 
 void draw_moon(UiState& state, const UiFrame& frame, UiActions& actions) {
+    const Translator tr{state.language};
     const auto* moon = find_object(frame.sky, 301, true);
     window("moon", frame.width - 274.f, 94, 250, 322);
-    ImGui::TextColored(accent, "月球");
-    ImGui::SameLine();
-    ImGui::TextDisabled(" / MOON");
+    ImGui::TextColored(accent, "%s", tr("月球"));
     if (!moon) {
         ImGui::Spacing();
-        ImGui::TextDisabled("正在计算月球位置…");
+        ImGui::TextDisabled("%s", tr("正在计算月球位置…"));
         ImGui::End();
         return;
     }
@@ -471,36 +496,37 @@ void draw_moon(UiState& state, const UiFrame& frame, UiActions& actions) {
     ImGui::SetCursorPos({105, 64});
     heading((number(moon->phase * 100) + "%").c_str(), frame.title);
     ImGui::SetCursorPos({105, 98});
-    ImGui::TextDisabled("月面照明");
+    ImGui::TextDisabled("%s", tr("月面照明"));
     ImGui::SetCursorPos({18, 140});
     if (moon->altitude() < 0) {
-        ImGui::TextColored(accent, "地平线以下");
+        ImGui::TextColored(accent, "%s", tr("地平线以下"));
     } else {
-        ImGui::TextColored(ImVec4{.63f, .79f, .71f, 1}, "已在地平线上方");
+        ImGui::TextColored(ImVec4{.63f, .79f, .71f, 1}, "%s", tr("已在地平线上方"));
     }
-    ImGui::TextDisabled("高度 %+6.1f°", moon->altitude() / rad);
+    ImGui::TextDisabled(tr("高度 %+6.1f°"), moon->altitude() / rad);
     ImGui::SameLine(128);
-    ImGui::TextDisabled("方位 %5.1f°", moon->azimuth() / rad);
-    ImGui::TextDisabled("距离 %s km", number(moon->distance_au * au_km, 0).c_str());
+    ImGui::TextDisabled(tr("方位 %5.1f°"), moon->azimuth() / rad);
+    ImGui::TextDisabled(tr("距离 %s km"), number(moon->distance_au * au_km, 0).c_str());
     ImGui::Spacing();
     ImGui::BeginDisabled(frame.busy);
     if (moon->altitude() >= 0) {
-        if (primary("拉近看月亮", {-1, 36})) {
+        if (primary(tr("拉近看月亮"), {-1, 36})) {
             focus(state, frame.scene, *moon, true);
         }
-    } else if (primary("跳到可观月时刻", {-1, 36})) {
+    } else if (primary(tr("跳到可观月时刻"), {-1, 36})) {
         state.playing = false;
         actions.seek_moon = true;
     }
     if (moon->altitude() < 0 && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("在未来 35 天内寻找：月球高度 ≥ 8°，太阳高度 ≤ "
-                          "−6°\n每半小时采样，保留当前地点和时间标准");
+        ImGui::SetTooltip("%s",
+                          tr("在未来 35 天内寻找：月球高度 ≥ 8°，太阳高度 ≤ "
+                             "−6°\n每半小时采样，保留当前地点和时间标准"));
     }
-    if (ImGui::Button("定位月球", {102, 30})) {
+    if (ImGui::Button(tr("定位月球"), {102, 30})) {
         focus(state, frame.scene, *moon);
     }
     ImGui::SameLine();
-    if (ImGui::Button("星空全景", {102, 30})) {
+    if (ImGui::Button(tr("星空全景"), {102, 30})) {
         state.track = false;
         frame.scene.fov = default_camera_fov / rad;
         frame.scene.elevation = 35;
@@ -519,6 +545,7 @@ std::string lower(std::string text) {
 }
 
 void draw_search(UiState& state, const UiFrame& frame) {
+    const Translator tr{state.language};
     if (state.panel != UiPanel::Search || !frame.sky || !frame.engine) {
         return;
     }
@@ -541,7 +568,7 @@ void draw_search(UiState& state, const UiFrame& frame) {
                     : frame.engine->catalog.name(frame.engine->catalog.stars[object.catalog_index]);
             auto searchable = name + (object.hip ? " HIP " + std::to_string(object.hip) : "");
             if (lower(searchable).find(needle) != std::string::npos) {
-                matches.push_back({&object, std::move(name)});
+                matches.push_back({&object, tr(name.c_str())});
             }
         }
     };
@@ -563,12 +590,13 @@ void draw_search(UiState& state, const UiFrame& frame) {
         ImGui::PopID();
     }
     if (matches.empty()) {
-        ImGui::TextWrapped("没有匹配的天体。可在显示设置中提高星等上限。");
+        ImGui::TextWrapped("%s", tr("没有匹配的天体。可在显示设置中提高星等上限。"));
     }
     ImGui::End();
 }
 
 void draw_selection(UiState& state, const UiFrame& frame) {
+    const Translator tr{state.language};
     auto* source = find_object(
         state.selected_body ? frame.sky : frame.stars, state.selected, state.selected_body);
     std::optional<Object> current_object;
@@ -583,9 +611,9 @@ void draw_selection(UiState& state, const UiFrame& frame) {
         ImGui::SetNextWindowBgAlpha(.75f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{12, 6});
         window("tracking", (frame.width - 250.f) / 2, frame.height - 155.f, 250, 44);
-        ImGui::Checkbox("跟踪月球", &state.track);
+        ImGui::Checkbox(tr("跟踪月球"), &state.track);
         ImGui::SameLine();
-        ImGui::TextDisabled("Esc 取消");
+        ImGui::TextDisabled("%s", tr("Esc 取消"));
         ImGui::End();
         ImGui::PopStyleVar();
         return;
@@ -595,63 +623,65 @@ void draw_selection(UiState& state, const UiFrame& frame) {
         object->body
             ? body_name(object->body)
             : frame.engine->catalog.name(frame.engine->catalog.stars[object->catalog_index]);
-    ImGui::TextWrapped("%s", name.c_str());
-    ImGui::TextDisabled("高度 %+6.1f°", object->altitude() / rad);
+    ImGui::TextWrapped("%s", tr(name.c_str()));
+    ImGui::TextDisabled(tr("高度 %+6.1f°"), object->altitude() / rad);
     ImGui::SameLine(128);
-    ImGui::TextDisabled("方位 %5.1f°", object->azimuth() / rad);
-    ImGui::TextDisabled("星等 %.2f", object->magnitude);
+    ImGui::TextDisabled(tr("方位 %5.1f°"), object->azimuth() / rad);
+    ImGui::TextDisabled(tr("星等 %.2f"), object->magnitude);
     if (object->distance_au > 0) {
-        ImGui::TextDisabled("距离 %s %s",
+        ImGui::TextDisabled(tr("距离 %s %s"),
                             number(object->distance_au / (object->body ? 1 : 63241.077), 3).c_str(),
                             object->body ? "AU" : "ly");
     }
     if (object->altitude() < 0) {
-        ImGui::TextColored(accent, "当前在地平线以下");
+        ImGui::TextColored(accent, "%s", tr("当前在地平线以下"));
     }
-    ImGui::Checkbox("跟踪此天体", &state.track);
-    if (ImGui::CollapsingHeader("观测详情")) {
-        ImGui::TextWrapped("%s", quality_text(*object).c_str());
-        ImGui::TextDisabled("赤经 %.4f°", wrap(atan2(object->icrs.y, object->icrs.x)) / rad);
-        ImGui::TextDisabled("赤纬 %.4f°", asin(object->icrs.z) / rad);
-        ImGui::TextDisabled("视方向 / ICRS 轴");
+    ImGui::Checkbox(tr("跟踪此天体"), &state.track);
+    if (ImGui::CollapsingHeader(tr("观测详情###details"))) {
+        ImGui::TextWrapped("%s", tr.message(quality_text(*object)).c_str());
+        ImGui::TextDisabled(tr("赤经 %.4f°"), wrap(atan2(object->icrs.y, object->icrs.x)) / rad);
+        ImGui::TextDisabled(tr("赤纬 %.4f°"), asin(object->icrs.z) / rad);
+        ImGui::TextDisabled("%s", tr("视方向 / ICRS 轴"));
         if (!object->body) {
-            ImGui::TextWrapped("形式误差约 %.2f″（不含模型）", object->formal_error_arcsec);
+            ImGui::TextWrapped(tr("形式误差约 %.2f″（不含模型）"), object->formal_error_arcsec);
         }
     }
     ImGui::End();
 }
 
 void draw_transport(UiState& state, const UiFrame& frame, UiActions& actions) {
+    const Translator tr{state.language};
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{16, 12});
     window("transport", (frame.width - 644.f) / 2, frame.height - 96.f, 644, 64);
-    if (ImGui::Button("−1 日", {70, 38})) {
+    if (ImGui::Button(tr("−1 日"), {70, 38})) {
         step_time(state, frame.scene, actions, -86400);
     }
     ImGui::SameLine();
-    if (ImGui::Button("−1 时", {70, 38})) {
+    if (ImGui::Button(tr("−1 时"), {70, 38})) {
         step_time(state, frame.scene, actions, -3600);
     }
     ImGui::SameLine();
-    if (primary(state.playing ? "暂停" : "播放", {74, 38})) {
+    if (primary(state.playing ? tr("暂停") : tr("播放"), {74, 38})) {
         state.playing = !state.playing;
     }
     ImGui::SameLine();
-    if (ImGui::Button("+1 时", {70, 38})) {
+    if (ImGui::Button(tr("+1 时"), {70, 38})) {
         step_time(state, frame.scene, actions, 3600);
     }
     ImGui::SameLine();
-    if (ImGui::Button("+1 日", {70, 38})) {
+    if (ImGui::Button(tr("+1 日"), {70, 38})) {
         step_time(state, frame.scene, actions, 86400);
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(114);
-    const char* rates[] = {"1 倍", "60 倍", "3600 倍", "1 日 / 秒", "1 年 / 秒"};
+    const char* rates[] = {
+        tr("1 倍"), tr("60 倍"), tr("3600 倍"), tr("1 日 / 秒"), tr("1 年 / 秒")};
     if (ImGui::Combo("##speed", &state.rate, rates, 5)) {
         const double speeds[] = {1, 60, 3600, 86400, 31557600};
         state.speed = std::copysign(speeds[state.rate], state.speed);
     }
     ImGui::SameLine();
-    if (ImGui::Button(state.speed < 0 ? "逆行" : "顺行", {64, 38})) {
+    if (ImGui::Button(state.speed < 0 ? tr("逆行") : tr("顺行"), {82, 38})) {
         state.speed = -state.speed;
     }
     ImGui::End();
@@ -659,10 +689,10 @@ void draw_transport(UiState& state, const UiFrame& frame, UiActions& actions) {
     auto* draw = ImGui::GetBackgroundDrawList();
     draw->AddText({24, float(frame.height - 25)},
                   IM_COL32(133, 144, 158, 200),
-                  "拖动环顾 · 滚轮缩放 · R 恢复水平 · H 沉浸模式");
+                  tr("拖动环顾 · 滚轮缩放 · R 恢复水平 · H 沉浸模式"));
     auto view = "FOV " + number(frame.scene.fov) + "°";
     if (frame.busy) {
-        view = "正在计算…  /  " + view;
+        view = tr("正在计算…  /  ") + view;
     }
     auto width = ImGui::CalcTextSize(view.c_str()).x;
     draw->AddText({frame.width - width - 24, float(frame.height - 25)},
