@@ -68,6 +68,13 @@ public:
     std::optional<Scenario> next_moon_view(const Scenario&,
                                            uint64_t generation = 0,
                                            const std::atomic<uint64_t>* latest = nullptr) const;
+    // Civil dawn/dusk: geometric solar centre crossing -6 degrees.
+    // Direction is -1 (previous) or +1 (next); search up to 370 days.
+    std::optional<Scenario> twilight_view(const Scenario&,
+                                          bool dawn,
+                                          int direction,
+                                          uint64_t generation = 0,
+                                          const std::atomic<uint64_t>* latest = nullptr) const;
 
     const EarthOrientationData& eop() const {
         return eop_;

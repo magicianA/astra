@@ -325,6 +325,35 @@ void draw_time(UiState& state, const UiFrame& frame, UiActions& actions) {
         actions.recompute = true;
         state.playing = false;
     }
+    ImGui::Spacing();
+    if (frame.sky) {
+        for (const auto& body : frame.sky->bodies) {
+            if (body.body != 10) {
+                continue;
+            }
+            const double altitude = asin(std::clamp(body.geometric.z, -1., 1.)) / rad;
+            const char* phase = altitude >= 0     ? "白昼"
+                                : altitude >= -6  ? "民用晨昏"
+                                : altitude >= -12 ? "航海晨昏"
+                                : altitude >= -18 ? "天文晨昏"
+                                                  : "黑夜";
+            ImGui::TextColored(accent, "%s  /  %.1f°", tr(phase), altitude);
+        }
+    }
+    ImGui::TextDisabled("%s", tr("太阳中心高度 −6°"));
+    const char* events[] = {"上次黎明", "下次黎明", "上次黄昏", "下次黄昏"};
+    const int codes[] = {-1, 1, -2, 2};
+    ImGui::BeginDisabled(frame.busy);
+    for (int i = 0; i < 4; ++i) {
+        if (i % 2) {
+            ImGui::SameLine();
+        }
+        if (ImGui::Button(tr(events[i]), {126, 32})) {
+            state.playing = state.track = false;
+            actions.seek_twilight = codes[i];
+        }
+    }
+    ImGui::EndDisabled();
 }
 
 void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
@@ -376,7 +405,16 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
     if (ImGui::SliderFloat("##exposure", &exposure, .1f, 4, "%.1f")) {
         scene.exposure = exposure;
     }
+    ImGui::Checkbox(tr("自动曝光"), &scene.auto_exposure);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s",
+                          tr("按全天亮度测光，转动和缩放不会改变曝光。关闭后使用固定夜空曝光。"));
+    }
     if (ImGui::CollapsingHeader(tr("大气与时间模型###models"))) {
+        ImGui::TextDisabled("%s", tr("大气预设"));
+        const char* presets[] = {tr("清澈"), tr("薄霾")};
+        ImGui::SetNextItemWidth(-1);
+        ImGui::Combo("##atmosphere-preset", &scene.atmosphere_preset, presets, 2);
         ImGui::TextDisabled("%s", tr("气压 hPa"));
         ImGui::SetNextItemWidth(-1);
         actions.recompute |= ImGui::InputDouble("##pressure", &scene.pressure, 0, 0, "%.1f");
@@ -425,7 +463,7 @@ void draw_drawer(UiState& state, const UiFrame& frame, UiActions& actions) {
     if (state.panel == UiPanel::None || state.panel == UiPanel::Search) {
         return;
     }
-    const float drawer_height = state.panel == UiPanel::Display ? 680.f : 550.f;
+    const float drawer_height = state.panel == UiPanel::Location ? 550.f : 680.f;
     window("settings", 102, 112, 300, std::min(drawer_height, frame.height - 240.f));
     const char* title = state.panel == UiPanel::Location ? tr("观察地点")
                         : state.panel == UiPanel::Time   ? tr("日期与时间")

@@ -10,6 +10,25 @@
 namespace astro {
 namespace {
 constexpr auto entries = std::to_array<Translation>({
+    {"白昼", "Daylight"},
+    {"民用晨昏", "Civil twilight"},
+    {"航海晨昏", "Nautical twilight"},
+    {"天文晨昏", "Astronomical twilight"},
+    {"黑夜", "Night"},
+    {"太阳中心高度 −6°", "Solar centre at −6°"},
+    {"上次黎明", "Previous dawn"},
+    {"下次黎明", "Next dawn"},
+    {"上次黄昏", "Previous dusk"},
+    {"下次黄昏", "Next dusk"},
+    {"自动曝光", "Automatic exposure"},
+    {"按全天亮度测光，转动和缩放不会改变曝光。关闭后使用固定夜空曝光。",
+     "Meters the whole sky, independent of rotation and zoom. Turn off for fixed night-sky "
+     "exposure."},
+    {"大气预设", "Atmosphere preset"},
+    {"清澈", "Clear"},
+    {"薄霾", "Hazy"},
+    {"370 天或数据有效期内没有找到对应的晨昏时刻。",
+     "No matching twilight within 370 days or the supported date range."},
     {"万年星空", "A 10,000-year sky"},
     {"Astra · 万年星空", "Astra · Planetarium"},
     {"观察地点", "Observer"},
@@ -126,6 +145,7 @@ constexpr auto entries = std::to_array<Translation>({
      "No suitable night-time Moon view within 35 days or the data interval. Try another date or "
      "site."},
     {"已前往可观月时刻：", "Viewing time: ", TranslationMode::Prefix},
+    {"已前往晨昏时刻：", "Twilight time: ", TranslationMode::Prefix},
     {"截图已保存：", "Screenshot saved: ", TranslationMode::Prefix},
     {"关闭", "Close"},
     {"长期外推 · ΔT %.1f 秒 · 误差范围未知",

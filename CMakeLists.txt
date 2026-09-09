@@ -81,6 +81,37 @@ if(ASTRA_BUILD_APP)
     find_package(Vulkan REQUIRED)
     find_package(SDL3 CONFIG REQUIRED)
     find_package(PNG REQUIRED)
+    set(ATMOSPHERE_SOURCES
+        shaders/atmosphere_filter.glsl shaders/atmosphere_model.glsl
+        shaders/atmosphere_spectrum.glsl shaders/atmosphere.comp vendor/bruneton/definitions.glsl
+        vendor/bruneton/functions.glsl
+    )
+    set_property(
+        DIRECTORY
+        APPEND
+        PROPERTY CMAKE_CONFIGURE_DEPENDS ${ATMOSPHERE_SOURCES}
+    )
+    set(ATMOSPHERE_HASH_INPUT "")
+    foreach(source IN LISTS ATMOSPHERE_SOURCES)
+        file(SHA256 "${CMAKE_SOURCE_DIR}/${source}" digest)
+        string(APPEND ATMOSPHERE_HASH_INPUT "${digest}")
+    endforeach()
+    string(SHA256 ATMOSPHERE_HASH "${ATMOSPHERE_HASH_INPUT}")
+    file(READ "${CMAKE_SOURCE_DIR}/shaders/atmosphere_spectrum.glsl" spectrum)
+    string(REGEX MATCH "SPECTRAL_GROUPS = ([0-9]+)" unused "${spectrum}")
+    set(SPECTRAL_GROUPS "${CMAKE_MATCH_1}")
+    add_library(astra_atmosphere_gpu src/atmosphere.cpp)
+    target_include_directories(astra_atmosphere_gpu PUBLIC include)
+    target_link_libraries(astra_atmosphere_gpu PUBLIC Vulkan::Vulkan)
+    target_compile_definitions(
+        astra_atmosphere_gpu PRIVATE ASTRA_ATMOSPHERE_ID="${ATMOSPHERE_HASH}"
+                                     ASTRA_SPECTRAL_GROUPS=${SPECTRAL_GROUPS}
+    )
+    add_executable(astra_atmosphere src/atmosphere_cli.cpp)
+    target_link_libraries(astra_atmosphere PRIVATE astra_atmosphere_gpu)
+    target_compile_definitions(
+        astra_atmosphere PRIVATE ASTRA_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders"
+    )
     add_library(
         imgui STATIC
         "${IMGUI_ROOT}/imgui.cpp" "${IMGUI_ROOT}/imgui_draw.cpp" "${IMGUI_ROOT}/imgui_tables.cpp"
@@ -92,7 +123,7 @@ if(ASTRA_BUILD_APP)
     add_executable(
         astra MACOSX_BUNDLE src/main.cpp src/app.cpp src/ui.cpp src/text.cpp src/renderer.cpp
     )
-    target_link_libraries(astra PRIVATE astro_core imgui PNG::PNG)
+    target_link_libraries(astra PRIVATE astro_core imgui PNG::PNG astra_atmosphere_gpu)
     target_compile_definitions(astra PRIVATE ASTRA_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders")
     set_target_properties(
         astra
@@ -119,7 +150,7 @@ if(ASTRA_BUILD_APP)
         endforeach()
     endif()
     find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
-    foreach(shader sky.vert sky.frag stars.vert stars.frag tonemap.frag)
+    foreach(shader sky.vert sky.frag stars.vert stars.frag tonemap.frag atmosphere.comp)
         add_custom_command(
             OUTPUT "${CMAKE_BINARY_DIR}/shaders/${shader}.spv"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/shaders"
@@ -127,13 +158,16 @@ if(ASTRA_BUILD_APP)
                 "${GLSLANG_VALIDATOR}" -V --target-env vulkan1.2
                 "${CMAKE_SOURCE_DIR}/shaders/${shader}" -o
                 "${CMAKE_BINARY_DIR}/shaders/${shader}.spv"
-            DEPENDS "${CMAKE_SOURCE_DIR}/shaders/${shader}" "${CMAKE_SOURCE_DIR}/shaders/scene.glsl"
+            DEPENDS "${CMAKE_SOURCE_DIR}/shaders/atmosphere_render.glsl"
+                    "${CMAKE_SOURCE_DIR}/shaders/${shader}" "${CMAKE_SOURCE_DIR}/shaders/scene.glsl"
+                    ${ATMOSPHERE_SOURCES}
             VERBATIM
         )
         list(APPEND SHADER_OUTPUTS "${CMAKE_BINARY_DIR}/shaders/${shader}.spv")
     endforeach()
     add_custom_target(astra_shaders DEPENDS ${SHADER_OUTPUTS})
     add_dependencies(astra astra_shaders)
+    add_dependencies(astra_atmosphere astra_shaders)
 endif()
 add_executable(astra_cli src/cli.cpp)
 target_link_libraries(astra_cli PRIVATE astro_core)

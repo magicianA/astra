@@ -3,6 +3,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <imgui.h>
@@ -201,12 +202,13 @@ Renderer::Renderer(SDL_Window* w,
         }
         check(vkCreateDevice(physical_, &di, nullptr, &device_));
         vkGetDeviceQueue(device_, family_, 0, &queue_);
-        VkDescriptorPoolSize poolsize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 32};
+        VkDescriptorPoolSize pools[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64},
+                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2}};
         VkDescriptorPoolCreateInfo dp{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         dp.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         dp.maxSets = 32;
-        dp.poolSizeCount = 1;
-        dp.pPoolSizes = &poolsize;
+        dp.poolSizeCount = 2;
+        dp.pPoolSizes = pools;
         check(vkCreateDescriptorPool(device_, &dp, nullptr, &descriptors_));
         VkDescriptorSetLayoutBinding bind{
             0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
@@ -214,20 +216,75 @@ Renderer::Renderer(SDL_Window* w,
         dl.bindingCount = 1;
         dl.pBindings = &bind;
         check(vkCreateDescriptorSetLayout(device_, &dl, nullptr, &tone_set_layout_));
+        std::array<VkDescriptorSetLayoutBinding, 9> atmosphere_bindings{};
+        for (uint32_t i = 0; i < atmosphere_bindings.size(); ++i) {
+            atmosphere_bindings[i] = {i,
+                                      i == 8 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                                             : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                      1,
+                                      VK_SHADER_STAGE_FRAGMENT_BIT,
+                                      nullptr};
+        }
+        dl.bindingCount = uint32_t(atmosphere_bindings.size());
+        dl.pBindings = atmosphere_bindings.data();
+        check(vkCreateDescriptorSetLayout(device_, &dl, nullptr, &atmosphere_set_layout_));
         VkSamplerCreateInfo si{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
         si.magFilter = si.minFilter = VK_FILTER_LINEAR;
         si.addressModeU = si.addressModeV = si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         si.maxLod = 0;
         check(vkCreateSampler(device_, &si, nullptr, &sampler_));
         VkFormatProperties fp;
+        vkGetPhysicalDeviceFormatProperties(physical_, VK_FORMAT_R32G32B32A32_SFLOAT, &fp);
+        manual_atmosphere_filtering_ =
+            !(fp.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ||
+            std::getenv("ASTRA_ATMOSPHERE_MANUAL_FILTER");
         vkGetPhysicalDeviceFormatProperties(physical_, hdr_format_, &fp);
         auto required = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
                         VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT |
                         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
         if ((fp.optimalTilingFeatures & required) != required) {
-            hdr_format_ = VK_FORMAT_R8G8B8A8_UNORM;
+            hdr_format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
+            vkGetPhysicalDeviceFormatProperties(physical_, hdr_format_, &fp);
+            if ((fp.optimalTilingFeatures & required) != required) {
+                throw std::runtime_error("A floating-point HDR render target is required");
+            }
+        }
+        const auto atmosphere_path = background.parent_path().parent_path() / "atmosphere";
+        for (unsigned i = 0; i < 2; ++i) {
+            atmospheres_[i] = std::make_unique<AtmosphereLut>(
+                physical_,
+                device_,
+                queue_,
+                family_,
+                shaders_,
+                atmosphere_path / (i == 0 ? "clear.bin" : "hazy.bin"),
+                i);
         }
         for (auto& f : frames_) {
+            f.atmosphere = buffer(48, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            VkDescriptorSetAllocateInfo allocate{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+            allocate.descriptorPool = descriptors_;
+            allocate.descriptorSetCount = 1;
+            allocate.pSetLayouts = &atmosphere_set_layout_;
+            check(vkAllocateDescriptorSets(device_, &allocate, &f.atmosphere_set));
+            std::array<VkDescriptorImageInfo, 8> images{};
+            std::array<VkWriteDescriptorSet, 9> writes{};
+            VkDescriptorBufferInfo uniform{f.atmosphere.handle, 0, 48};
+            for (uint32_t i = 0; i < writes.size(); ++i) {
+                auto& write = writes[i];
+                write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                write.dstSet = f.atmosphere_set;
+                write.dstBinding = i;
+                write.descriptorCount = 1;
+                write.descriptorType = atmosphere_bindings[i].descriptorType;
+                if (i == 8) {
+                    write.pBufferInfo = &uniform;
+                } else {
+                    images[i] = atmospheres_[i / 4]->descriptor(i % 4);
+                    write.pImageInfo = &images[i];
+                }
+            }
+            vkUpdateDescriptorSets(device_, uint32_t(writes.size()), writes.data(), 0, nullptr);
             VkCommandPoolCreateInfo ci{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
             ci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
             ci.queueFamilyIndex = family_;
@@ -679,28 +736,30 @@ VkShaderModule Renderer::shader(const char* name) {
 }
 
 void Renderer::create_pipelines() {
-    auto layout = [&](uint32_t size, VkShaderStageFlags stage, bool set) {
+    auto layout = [&](uint32_t size, VkShaderStageFlags stage, bool atmosphere) {
         VkPushConstantRange pc{stage, 0, size};
         VkPipelineLayoutCreateInfo i{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         i.pushConstantRangeCount = 1;
         i.pPushConstantRanges = &pc;
-        if (set) {
-            i.setLayoutCount = 1;
-            i.pSetLayouts = &tone_set_layout_;
-        }
+        VkDescriptorSetLayout layouts[] = {tone_set_layout_, atmosphere_set_layout_};
+        i.setLayoutCount = atmosphere ? 2 : 1;
+        i.pSetLayouts = layouts;
         VkPipelineLayout l;
         check(vkCreatePipelineLayout(device_, &i, nullptr, &l));
         return l;
     };
     sky_layout_ = layout(128, VK_SHADER_STAGE_FRAGMENT_BIT, true);
-    stars_layout_ = layout(128, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, false);
-    tone_layout_ = layout(4, VK_SHADER_STAGE_FRAGMENT_BIT, true);
+    stars_layout_ = layout(128, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, true);
+    tone_layout_ = layout(4, VK_SHADER_STAGE_FRAGMENT_BIT, false);
     auto pipeline = [&](const char* vert,
                         const char* frag,
                         VkPipelineLayout layout,
                         VkRenderPass pass,
                         bool stars) {
         auto vs = shader(vert), fs = shader(frag);
+        VkSpecializationMapEntry filtering{0, 0, sizeof(VkBool32)};
+        VkSpecializationInfo specialization{
+            1, &filtering, sizeof(VkBool32), &manual_atmosphere_filtering_};
         VkPipelineShaderStageCreateInfo stages[2]{};
         stages[0] = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                      nullptr,
@@ -715,7 +774,7 @@ void Renderer::create_pipelines() {
                      VK_SHADER_STAGE_FRAGMENT_BIT,
                      fs,
                      "main",
-                     nullptr};
+                     &specialization};
         VkVertexInputBindingDescription binding{
             0, sizeof(StarInstance), VK_VERTEX_INPUT_RATE_INSTANCE};
         VkVertexInputAttributeDescription attrs[3] = {{0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
@@ -805,6 +864,32 @@ void Renderer::render(const RenderScene& s,
     }
     auto& f = frames_[frame_];
     check(vkWaitForFences(device_, 1, &f.fence, VK_TRUE, UINT64_MAX));
+    const auto& atmosphere = *atmospheres_[s.atmosphere_preset];
+    float adaptation = 300;
+    if (s.atmosphere && s.auto_exposure) {
+        const auto solar = atmosphere.irradiance(s.height_km, float(s.geometric_sun.z));
+        const auto lunar = atmosphere.irradiance(s.height_km, float(s.geometric_moon.z));
+        constexpr float luminance[] = {.2126f, .7152f, .0722f};
+        float mean = 0;
+        for (int i = 0; i < 3; ++i) {
+            mean += luminance[i] * (solar[i] * s.solar_flux + lunar[i] * s.lunar_flux) / float(pi);
+        }
+        adaptation = .12f / (.0004f + mean);
+    }
+    effective_exposure_ = adaptation * s.exposure;
+    const float atmosphere_uniform[] = {float(s.geometric_sun.x),
+                                        float(s.geometric_sun.y),
+                                        float(s.geometric_sun.z),
+                                        s.solar_flux,
+                                        float(s.geometric_moon.x),
+                                        float(s.geometric_moon.y),
+                                        float(s.geometric_moon.z),
+                                        s.lunar_flux,
+                                        s.height_km,
+                                        float(s.atmosphere_preset),
+                                        s.auto_exposure ? 1.f : 0.f,
+                                        adaptation};
+    memcpy(f.atmosphere.mapped, atmosphere_uniform, sizeof(atmosphere_uniform));
     uint32_t image;
     auto acquired =
         vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &image);
@@ -883,6 +968,14 @@ void Renderer::render(const RenderScene& s,
     vkCmdBindDescriptorSets(f.command,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                             sky_layout_,
+                            1,
+                            1,
+                            &f.atmosphere_set,
+                            0,
+                            nullptr);
+    vkCmdBindDescriptorSets(f.command,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            sky_layout_,
                             0,
                             1,
                             &background_set_,
@@ -892,6 +985,14 @@ void Renderer::render(const RenderScene& s,
     vkCmdDraw(f.command, 3, 1, 0, 0);
     if (!s.points.empty()) {
         vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, stars_pipeline_);
+        vkCmdBindDescriptorSets(f.command,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                stars_layout_,
+                                1,
+                                1,
+                                &f.atmosphere_set,
+                                0,
+                                nullptr);
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(f.command, 0, 1, &f.instances.handle, &offset);
         vkCmdPushConstants(f.command,
@@ -903,6 +1004,22 @@ void Renderer::render(const RenderScene& s,
         vkCmdDraw(f.command, 6, uint32_t(s.points.size()), 0, 0);
     }
     vkCmdEndRenderPass(f.command);
+    // Make the HDR store visible before tone mapping. The explicit barrier is
+    // also needed by MoltenVK's tile renderer with the manual LUT filter path;
+    // relying on the external subpass dependency alone produced stale tiles.
+    VkMemoryBarrier hdr_ready{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+    hdr_ready.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    hdr_ready.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(f.command,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0,
+                         1,
+                         &hdr_ready,
+                         0,
+                         nullptr,
+                         0,
+                         nullptr);
     pass.renderPass = render_pass_;
     pass.framebuffer = framebuffers_[image];
     vkCmdBeginRenderPass(f.command, &pass, VK_SUBPASS_CONTENTS_INLINE);
@@ -1021,6 +1138,7 @@ void Renderer::cleanup() {
         destroy_swapchain();
         for (auto& f : frames_) {
             release(f.instances);
+            release(f.atmosphere);
             if (f.acquired) {
                 vkDestroySemaphore(device_, f.acquired, nullptr);
             }
@@ -1059,6 +1177,9 @@ void Renderer::cleanup() {
         if (tone_set_layout_) {
             vkDestroyDescriptorSetLayout(device_, tone_set_layout_, nullptr);
         }
+        if (atmosphere_set_layout_) {
+            vkDestroyDescriptorSetLayout(device_, atmosphere_set_layout_, nullptr);
+        }
         if (descriptors_) {
             vkDestroyDescriptorPool(device_, descriptors_, nullptr);
         }
@@ -1067,6 +1188,9 @@ void Renderer::cleanup() {
         }
         if (render_pass_) {
             vkDestroyRenderPass(device_, render_pass_, nullptr);
+        }
+        for (auto& atmosphere : atmospheres_) {
+            atmosphere.reset();
         }
         vkDestroyDevice(device_, nullptr);
         device_ = {};

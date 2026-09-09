@@ -14,6 +14,8 @@ struct Scenario {
     bool atmosphere = true, ground = true, grid = false, labels = true;
     ProjectionKind projection = ProjectionKind::Perspective;
     bool milky_way = true;
+    int atmosphere_preset = 0;
+    bool auto_exposure = true;
     double pressure = 1013.25, temperature = 15, extinction = .2, exposure = 1,
            light_pollution = .08;
     std::string location_name = "北京 Beijing";
@@ -23,6 +25,7 @@ void validate(const Scenario&);
 void save_scenario(const Scenario&,
                    const std::filesystem::path&,
                    const std::string& data_id = "",
-                   const TimeContext* observation = nullptr);
+                   const TimeContext* observation = nullptr,
+                   double effective_exposure = 0);
 Scenario load_scenario(const std::filesystem::path&, const std::string& expected_data_id = "");
 } // namespace astro

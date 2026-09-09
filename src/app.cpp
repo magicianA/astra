@@ -33,6 +33,8 @@ struct Worker {
     std::string error, status = "正在读取星表与历表…";
     bool stop = false, busy = true;
     bool pending_moon = false, adopt_scene = false;
+    bool adopt_moon = false;
+    int pending_twilight = 0;
     std::thread thread;
 
     Worker(std::filesystem::path data) {
@@ -49,6 +51,7 @@ struct Worker {
                     Scenario scene;
                     uint64_t id;
                     bool seek_moon;
+                    int seek_twilight;
                     {
                         std::unique_lock lock(mutex);
                         wake.wait(lock, [&] {
@@ -60,11 +63,29 @@ struct Worker {
                         scene = *pending;
                         seek_moon = pending_moon;
                         pending_moon = false;
+                        seek_twilight = pending_twilight;
+                        pending_twilight = 0;
                         pending.reset();
                         id = generation.load();
                         busy = true;
                     }
                     try {
+                        if (seek_twilight) {
+                            auto found = ready->twilight_view(scene,
+                                                              abs(seek_twilight) == 1,
+                                                              seek_twilight > 0 ? 1 : -1,
+                                                              id,
+                                                              &generation);
+                            if (!found) {
+                                std::lock_guard lock(mutex);
+                                if (generation.load() == id) {
+                                    error = "370 天或数据有效期内没有找到对应的晨昏时刻。";
+                                }
+                                busy = false;
+                                continue;
+                            }
+                            scene = *found;
+                        }
                         if (seek_moon) {
                             auto found = ready->next_moon_view(scene, id, &generation);
                             if (!found) {
@@ -83,7 +104,8 @@ struct Worker {
                         std::lock_guard lock(mutex);
                         if (result && generation.load() == id) {
                             snapshot = result;
-                            adopt_scene = seek_moon;
+                            adopt_scene = seek_moon || seek_twilight;
+                            adopt_moon = seek_moon;
                             error.clear();
                         }
                         busy = false;
@@ -114,11 +136,12 @@ struct Worker {
         thread.join();
     }
 
-    void request(const Scenario& s, bool seek_moon = false) {
+    void request(const Scenario& s, bool seek_moon = false, int seek_twilight = 0) {
         {
             std::lock_guard lock(mutex);
             pending = s;
             pending_moon = seek_moon;
+            pending_twilight = seek_twilight;
             adopt_scene = false;
             ++generation;
         }
@@ -226,16 +249,24 @@ RenderScene render_scene(const SkySnapshot& sky,
     result.ground = s.ground;
     result.pollution = float(s.light_pollution);
     result.exposure = float(view.exposure);
+    result.atmosphere_preset = view.atmosphere_preset;
+    result.auto_exposure = view.auto_exposure;
+    result.height_km = float(s.height / 1000.);
     result.moon_phase = float(sky.moon_phase);
     for (auto& o : sky.bodies) {
         if (o.body == 10) {
             result.sun = o.observed;
+            result.geometric_sun = o.geometric;
+            result.solar_flux = float(1. / (o.distance_au * o.distance_au));
         }
         if (o.body == 301) {
             result.moon = o.observed;
+            result.geometric_moon = o.geometric;
+            // Full Moon horizontal illuminance is approximately 0.25 lux.
+            // The ephemeris magnitude already includes phase and distance.
+            result.lunar_flux = float(.25 / 130000. * pow(10., -.4 * (o.magnitude + 12.74)));
         }
     }
-    double day = s.atmosphere ? std::clamp((sky.sun_altitude / rad + 12) / 18, 0., 1.) : 0.;
     const auto projection = camera.prepare();
     const float limb =
         float(atan2(dot(result.sun, projection.up), dot(result.sun, projection.right)));
@@ -249,23 +280,21 @@ RenderScene render_scene(const SkySnapshot& sky,
             return;
         }
         double mag = o.magnitude;
-        if (s.atmosphere) {
-            double air = 1 / std::max(.035, sin(std::max(0., alt)));
-            mag += s.extinction * (air - 1);
-        }
         bool disk = o.body && (o.body == 301 || o.body == 10 ||
                                o.angular_radius * projection.maximum_scale(p) > 1.3);
-        if (!disk && mag > s.magnitude - day * 11 - s.light_pollution * 2) {
+        if (!disk && mag > s.magnitude) {
             return;
         }
         // Unresolved sources share a compact screen-space point-spread function.
         // Its six-sigma support is independent of magnitude and camera zoom.
         float radius = disk ? float(o.angular_radius * projection.scale) : 3.f;
-        float strength = disk ? (o.body == 10 ? 9.f : 1.5f)
-                              : float(4 * std::log1p(.42 * pow(10., .4 * (3 - mag)) / 4));
+        // Diffuse light uses photometric RGB; unresolved sources retain a
+        // chosen display gain for their fixed pixel footprint.
+        float strength = disk ? (o.body == 10 ? 1.9e9f * result.solar_flux : 4000.f)
+                              : float(.02 * pow(10., -.4 * mag));
         if (!disk) {
             // Fade through the detection limit instead of toggling stars on/off.
-            const double limit = s.magnitude - day * 11 - s.light_pollution * 2;
+            const double limit = s.magnitude;
             const double visibility = std::clamp((limit - mag) / .75, 0., 1.);
             strength *= float(visibility * visibility * (3 - 2 * visibility));
         }
@@ -282,7 +311,7 @@ RenderScene render_scene(const SkySnapshot& sky,
                                  0,
                                  0});
     };
-    const double limiting_magnitude = s.magnitude - day * 11 - s.light_pollution * 2;
+    const double limiting_magnitude = s.magnitude;
     const double refraction_margin = s.atmosphere ? refraction(-rad, s.pressure, s.temperature) : 0;
     const double corner_angle = projection.corner_angle();
     const double minimum_dot = cos(std::min(pi, corner_angle + refraction_margin));
@@ -524,6 +553,7 @@ int run_app(const AppOptions& options) {
                        elapsed = std::chrono::duration<double>(current - first).count();
                 last = current;
                 bool request = false, seek_moon = false;
+                int seek_twilight = 0;
                 std::optional<ImVec2> pick_position;
                 SDL_Event event;
                 while (SDL_PollEvent(&event)) {
@@ -625,12 +655,13 @@ int run_app(const AppOptions& options) {
                     if (worker.adopt_scene && latest_snapshot) {
                         scene = latest_snapshot->scenario;
                         sky = latest_snapshot;
-                        selected = 301;
-                        selected_body = true;
-                        track = true;
+                        selected = worker.adopt_moon ? 301 : 0;
+                        selected_body = worker.adopt_moon;
+                        track = worker.adopt_moon;
                         worker.adopt_scene = false;
-                        notice = "已前往可观月时刻：" + format_date(scene.date) + " " +
-                                 scale_name(scene.scale);
+                        notice = std::string(worker.adopt_moon ? "已前往可观月时刻："
+                                                               : "已前往晨昏时刻：") +
+                                 format_date(scene.date) + " " + scale_name(scene.scale);
                     }
                 }
                 if (was_playing && !playing) {
@@ -705,7 +736,13 @@ int run_app(const AppOptions& options) {
                     }
                 }
                 if (options.smoke) {
+                    if (frame >= 25 && frame < 45) {
+                        scene.atmosphere_preset = frame % 2;
+                        scene.auto_exposure = (frame / 2) % 2;
+                    }
                     if (frame == 45) {
+                        scene.atmosphere_preset = options.scenario.atmosphere_preset;
+                        scene.auto_exposure = options.scenario.auto_exposure;
                         SDL_SetWindowSize(window, 1280, 800);
                     }
                     if (frame == 80) {
@@ -794,6 +831,7 @@ int run_app(const AppOptions& options) {
                                             stars.get()});
                     request |= actions.recompute;
                     seek_moon = actions.seek_moon;
+                    seek_twilight = actions.seek_twilight;
                     if (actions.language_changed) {
                         tr.language = ui.language;
                         SDL_SetWindowTitle(window, tr("Astra · 万年星空"));
@@ -836,10 +874,10 @@ int run_app(const AppOptions& options) {
                     ImGui::PopTextWrapPos();
                     ImGui::End();
                 }
-                if (request || seek_moon) {
+                if (request || seek_moon || seek_twilight) {
                     try {
                         validate(scene);
-                        worker.request(scene, seek_moon);
+                        worker.request(scene, seek_moon, seek_twilight);
                     } catch (const std::exception& e) {
                         notice = e.what();
                     }
@@ -859,6 +897,8 @@ int run_app(const AppOptions& options) {
                 }
                 render.camera = camera;
                 render.exposure = float(scene.exposure);
+                render.auto_exposure = scene.auto_exposure;
+                render.atmosphere_preset = scene.atmosphere_preset;
                 render.milky_way = scene.milky_way && bool(sky);
                 bool capture = !pending_shot.empty() && !shot_done && sky &&
                                sky == latest_snapshot && !playing && !busy && !request &&
@@ -875,10 +915,13 @@ int run_app(const AppOptions& options) {
                         saved.fov = scene.fov;
                         saved.projection = scene.projection;
                         saved.exposure = scene.exposure;
+                        saved.auto_exposure = scene.auto_exposure;
+                        saved.atmosphere_preset = scene.atmosphere_preset;
                         saved.milky_way = scene.milky_way;
                         auto meta = pending_shot;
                         meta.replace_extension("json");
-                        save_scenario(saved, meta, sky->data_id, &sky->time);
+                        save_scenario(
+                            saved, meta, sky->data_id, &sky->time, renderer.effective_exposure());
                         notice = "截图已保存：" + pending_shot.string();
                         std::cout << "Screenshot: " << pending_shot << std::endl;
                         shot_done = true;

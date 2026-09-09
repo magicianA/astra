@@ -33,6 +33,7 @@ struct UiFrame {
 
 struct UiActions {
     bool recompute = false, seek_moon = false;
+    int seek_twilight = 0; // +/-1 dawn, +/-2 dusk; sign selects previous/next
     bool language_changed = false;
 };
 

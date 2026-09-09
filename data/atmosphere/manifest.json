@@ -1,0 +1,48 @@
+{
+  "model": "bruneton-spectral-v1",
+  "format": "ASTRAAT2 / little-endian RGBA32F",
+  "upstream_commit": "34f14e745cff948f4ca3157d1b62a445ffa7286f",
+  "profiles": [
+    {
+      "name": "clear.bin",
+      "preset": 0,
+      "scattering_orders": 8,
+      "wavelengths": 45,
+      "source_id": "7564c228b0a0ca987069f7fcfe33d563055dc199fd724eee01888ab392bab104"
+    },
+    {
+      "name": "hazy.bin",
+      "preset": 1,
+      "scattering_orders": 8,
+      "wavelengths": 45,
+      "source_id": "7564c228b0a0ca987069f7fcfe33d563055dc199fd724eee01888ab392bab104"
+    }
+  ],
+  "runtime_sha256": {
+    "atmosphere/clear.bin": "afc90d4f58cf1f3a8361d9c96bb6fe2fb7e2ef31b0d7e1e90c34fb24cd0bf0f3",
+    "atmosphere/hazy.bin": "1fd2986b5c933fa722522d93fbb203577da5c67e07ca181f773fdd8f28092bfa"
+  },
+  "solar_zenith_limit_degrees": 120,
+  "dimensions": [
+    [
+      256,
+      64,
+      1
+    ],
+    [
+      256,
+      128,
+      32
+    ],
+    [
+      256,
+      128,
+      32
+    ],
+    [
+      64,
+      16,
+      1
+    ]
+  ]
+}

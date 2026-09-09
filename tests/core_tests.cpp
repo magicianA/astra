@@ -157,7 +157,12 @@ int main(int argc, char** argv) {
                  ".json");
             Scenario scene;
             scene.milky_way = false;
+            scene.atmosphere_preset = 1;
+            scene.auto_exposure = false;
             save_scenario(scene, path);
+            require(load_scenario(path).atmosphere_preset == 1 &&
+                        !load_scenario(path).auto_exposure,
+                    "preserve atmosphere and exposure settings");
             require(!load_scenario(path).milky_way,
                     "preserve the Milky Way toggle in saved scenes");
             auto json = nlohmann::json::parse(std::ifstream(path));
@@ -173,6 +178,28 @@ int main(int argc, char** argv) {
                     "the 4K to 16K background upgrade does not change the view");
             json.erase("milky_way");
             json.erase("background_id");
+            json.erase("atmosphere_model");
+            json.erase("atmosphere_preset");
+            json.erase("auto_exposure");
+            std::ofstream(path) << json;
+            require(load_scenario(path).atmosphere_preset == 0 && load_scenario(path).auto_exposure,
+                    "legacy atmosphere scenes migrate to clear sky with automatic exposure");
+            json["atmosphere_preset"] = 2;
+            std::ofstream(path) << json;
+            rejects(
+                [&] {
+                    load_scenario(path);
+                },
+                "reject invalid atmosphere preset");
+            json.erase("atmosphere_preset");
+            json["atmosphere_model"] = "unsupported-atmosphere";
+            std::ofstream(path) << json;
+            rejects(
+                [&] {
+                    load_scenario(path);
+                },
+                "reject unknown atmosphere model");
+            json.erase("atmosphere_model");
             std::ofstream(path) << json;
             require(load_scenario(path).milky_way,
                     "legacy scenes enable the background by default");
@@ -339,6 +366,70 @@ int main(int argc, char** argv) {
 
         Scenario scene;
         scene.scale = TimeScale::UT1;
+        scene.date = {2026, 9, 8, 4, 0, 0};
+        auto solar_altitude = [&](const Scenario& value) {
+            auto sky = engine.compute(value, 0, nullptr, SkyEngine::Scope::SolarSystem);
+            for (const auto& body : sky->bodies) {
+                if (body.body == 10) {
+                    return asin(body.geometric.z) / rad;
+                }
+            }
+            throw std::runtime_error("Missing solar reference");
+        };
+        for (bool dawn : {false, true}) {
+            for (int direction : {-1, 1}) {
+                auto event = engine.twilight_view(scene, dawn, direction);
+                require(event.has_value(), "civil twilight found");
+                close(solar_altitude(*event), -6., .0003, "twilight uses geometric solar altitude");
+                const double seconds =
+                    (to_jd(event->date).value() - to_jd(scene.date).value()) * 86400;
+                require(seconds * direction > 0 && std::abs(seconds) < 86400,
+                        "nearest twilight in requested direction");
+                auto after = *event;
+                after.date = from_jd(to_jd(after.date).add_seconds(60));
+                require((solar_altitude(after) > -6.) == dawn, "dawn rises and dusk falls");
+                const double geometric = solar_altitude(after);
+                after.atmosphere = false;
+                close(solar_altitude(after),
+                      geometric,
+                      1e-10,
+                      "geometric solar transport is independent of refraction toggle");
+                auto again = engine.twilight_view(*event, dawn, direction);
+                require(again &&
+                            std::abs(to_jd(again->date).value() - to_jd(event->date).value()) > .9,
+                        "repeat navigation advances to another event");
+            }
+        }
+        std::atomic<uint64_t> cancelled_twilight{2};
+        require(!engine.twilight_view(scene, true, 1, 1, &cancelled_twilight),
+                "twilight search cancellation");
+        auto boundary = scene;
+        boundary.date = {6999, 12, 31, 23, 59, 59};
+        require(!engine.twilight_view(boundary, true, 1), "twilight respects upper date limit");
+        boundary.date = {-3000, 1, 1, 0, 0, 0};
+        require(!engine.twilight_view(boundary, true, -1), "twilight respects lower date limit");
+        auto polar = scene;
+        polar.latitude = 90;
+        polar.date = {2026, 6, 21, 12, 0, 0};
+        auto polar_dusk = engine.twilight_view(polar, false, 1);
+        require(polar_dusk && polar_dusk->date.month >= 9,
+                "polar day search reaches seasonal dusk");
+        close(solar_altitude(*polar_dusk), -6., .0003, "polar twilight root");
+        auto grazing = scene;
+        grazing.latitude = 72.55;
+        grazing.longitude = 0;
+        grazing.scale = TimeScale::LocalMean;
+        grazing.date = {2026, 12, 21, 10, 15, 0};
+        const auto brief_dawn = engine.twilight_view(grazing, true, 1);
+        const auto brief_dusk = engine.twilight_view(grazing, false, 1);
+        require(brief_dawn && brief_dusk && brief_dawn->date.day == 21 &&
+                    brief_dusk->date.day == 21,
+                "grazing twilight finds crossings inside one half-hour bracket");
+        const double duration =
+            (to_jd(brief_dusk->date).value() - to_jd(brief_dawn->date).value()) * 86400;
+        require(duration > 0 && duration < 1800, "short polar civil twilight interval");
+        close(solar_altitude(*brief_dawn), -6., .0003, "grazing dawn root");
+        close(solar_altitude(*brief_dusk), -6., .0003, "grazing dusk root");
         scene.atmosphere = false;
         scene.magnitude = 6.5;
         for (int year : {-3000, 0, 1969, 2000, 2026, 4000, 6999}) {

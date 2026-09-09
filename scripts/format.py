@@ -34,7 +34,7 @@ def main():
         path
         for folder in ("src", "include", "tests", "shaders")
         for path in (ROOT / folder).rglob("*")
-        if path.suffix in (".cpp", ".hpp", ".vert", ".frag", ".glsl")
+        if path.suffix in (".cpp", ".hpp", ".vert", ".frag", ".glsl", ".comp")
     )
     subprocess.run(
         [clang_format, *(["--dry-run", "--Werror"] if args.check else ["-i"]), *map(str, sources)],

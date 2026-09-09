@@ -14,6 +14,7 @@ license notices are in `data/licenses/` and in the packaged app's resources.
 | ERFA | 2.0.1, NumFOCUS and contributors; derived from IAU SOFA | BSD-3-Clause, with ERFA/SOFA notices |
 | CSPICE | N0067, NASA/JPL/NAIF | Included SPICE software notice; [NAIF rules](https://naif.jpl.nasa.gov/naif/rules.html) |
 | libpng | Homebrew-linked version | libpng license |
+| Precomputed Atmospheric Scattering | Eric Bruneton, commit `34f14e745cff948f4ca3157d1b62a445ffa7286f` | BSD-3-Clause; `vendor/bruneton/LICENSE` and `data/licenses/Bruneton-BSD-3-Clause.txt` |
 | Noto Sans CJK SC | Sans 2.004, Adobe and Google contributors | SIL Open Font License 1.1 |
 | Gaia DR3 | ESA/Gaia/DPAC | [Official credit and citation instructions](https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/) |
 | NASA Deep Star Maps 2020 Milky Way layer | NASA/Goddard SVS; Ernie Wright; Gaia DR2: ESA/Gaia/DPAC | [NASA media guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/); see `data/licenses/NASA-SVS-background.txt` |
@@ -33,7 +34,8 @@ for the user's local use. Commercial redistribution of the combined catalogue
 requires checking the terms of each upstream catalogue; the software component
 licenses do not grant additional rights to the scientific data.
 
-The renderer uses procedural atmosphere and body shading, together with the
+The renderer uses Bruneton spectral multiple-scattering atmosphere tables and
+procedural body shading, together with the
 [NASA SVS Deep Star Maps 2020 Milky Way layer](https://svs.gsfc.nasa.gov/4851/).
 The native 16384x8192 Galactic-coordinate EXR omits the bright Hipparcos/Tycho
 foreground. Astra applies display intensity mapping, sRGB encoding and polar-row

@@ -37,6 +37,9 @@ ProjectionKind load_projection(const nlohmann::json& json) {
 
 void validate(const Scenario& s) {
     projection_name(s.projection);
+    if (s.atmosphere_preset < 0 || s.atmosphere_preset > 1) {
+        throw std::invalid_argument("Unknown atmosphere preset");
+    }
     auto range = [](double x, double a, double b) {
         return std::isfinite(x) && x >= a && x <= b;
     };
@@ -55,7 +58,8 @@ void validate(const Scenario& s) {
 void save_scenario(const Scenario& s,
                    const std::filesystem::path& p,
                    const std::string& id,
-                   const TimeContext* observation) {
+                   const TimeContext* observation,
+                   double effective_exposure) {
     validate(s);
     nlohmann::json j = {
         {"schema_version", 1},
@@ -77,6 +81,10 @@ void save_scenario(const Scenario& s,
         {"fov", s.fov},
         {"magnitude", s.magnitude},
         {"atmosphere", s.atmosphere},
+        {"atmosphere_model", "bruneton-spectral-v1"},
+        {"atmosphere_preset", s.atmosphere_preset},
+        {"auto_exposure", s.auto_exposure},
+        {"exposure_model", "hemisphere-irradiance-v1"},
         {"ground", s.ground},
         {"grid", s.grid},
         {"labels", s.labels},
@@ -98,6 +106,9 @@ void save_scenario(const Scenario& s,
             {"time_quality", time.note},
             {"model_version", "astra-astrometry-v1"},
         };
+    }
+    if (effective_exposure > 0 && std::isfinite(effective_exposure)) {
+        j["effective_exposure"] = effective_exposure;
     }
     if (!p.parent_path().empty()) {
         std::filesystem::create_directories(p.parent_path());
@@ -159,6 +170,11 @@ Scenario load_scenario(const std::filesystem::path& p, const std::string& id) {
     LOAD(fov);
     LOAD(magnitude);
     LOAD(atmosphere);
+    if (j.value("atmosphere_model", "bruneton-spectral-v1") != "bruneton-spectral-v1") {
+        throw std::runtime_error("Unknown atmosphere model");
+    }
+    LOAD(atmosphere_preset);
+    LOAD(auto_exposure);
     LOAD(ground);
     LOAD(grid);
     LOAD(labels);

@@ -55,6 +55,10 @@ def package(build, destination):
     for name, expected in background["runtime_sha256"].items():
         if digest(ROOT / "data" / name) != expected:
             raise RuntimeError(f"Background checksum differs from the manifest: {name}")
+    atmosphere = json.loads((ROOT / "data/atmosphere/manifest.json").read_text())
+    for name, expected in atmosphere["runtime_sha256"].items():
+        if digest(ROOT / "data" / name) != expected:
+            raise RuntimeError(f"Atmosphere checksum differs from the manifest: {name}")
     if destination.exists():
         if destination.name != "Astra.app" or destination.parent != ROOT / "dist":
             raise RuntimeError(
@@ -125,6 +129,9 @@ def package(build, destination):
         "catalog/stars.bin",
         "background/milky-way.png",
         "background/manifest.json",
+        "atmosphere/clear.bin",
+        "atmosphere/hazy.bin",
+        "atmosphere/manifest.json",
         "catalog/manifest.json",
         "catalog/names.json",
         "catalog/positional-matches.json",

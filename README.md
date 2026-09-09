@@ -7,6 +7,11 @@ Choose a location on Earth, an elevation, and a date and time to see the topocen
 apparent positions of stars, the Sun, the Moon, and the seven other planets.
 On macOS, Vulkan runs on Metal through MoltenVK. The interface supports **English and Simplified Chinese**.
 
+Physical dawn and dusk use spectral Rayleigh/Mie multiple scattering and ozone absorption.
+The Time panel can jump to previous/next civil dawn or dusk; the View panel offers clear
+and hazy atmospheres and camera-independent automatic exposure. Try `examples/dawn.json`
+or `examples/dusk.json`. See [the model, limitations and measured checks](docs/TWILIGHT_IMPLEMENTATION.md).
+
 The supported interval is **−3000-01-01 through +7000-01-01, exclusive of the end date**,
 using astronomical year numbering and the proleptic Gregorian calendar by default.
 Year 0 is 1 BCE; year −3000 is 3001 BCE. Historical and future dates use UT1, TT, TDB,
@@ -286,4 +291,5 @@ The detailed design and implementation documents are currently in Chinese:
 [Data sources](docs/DATA_SOURCES.md) · [Local Vulkan environment](docs/ENVIRONMENT.md) ·
 [Third-party notices and licences](THIRD_PARTY_NOTICES.md)
 
-Research proposals in English: [Dawn and dusk rendering](docs/TWILIGHT_DESIGN.md).
+Atmosphere documentation in English: [Research](docs/TWILIGHT_DESIGN.md) ·
+[Implementation and validation](docs/TWILIGHT_IMPLEMENTATION.md).

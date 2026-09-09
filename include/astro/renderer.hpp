@@ -1,8 +1,10 @@
 #pragma once
+#include "atmosphere.hpp"
 #include "camera.hpp"
 #include "sky.hpp"
 #include <SDL3/SDL.h>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -18,6 +20,10 @@ struct StarInstance {
 struct RenderScene {
     Camera camera;
     Vec3 sun{0, 0, -1}, moon{0, 0, -1};
+    Vec3 geometric_sun{0, 0, -1}, geometric_moon{0, 0, -1};
+    float solar_flux = 1, lunar_flux = 0, height_km = 0;
+    int atmosphere_preset = 0;
+    bool auto_exposure = true;
     bool atmosphere = true, ground = true;
     bool milky_way = false;
     float extinction = .2;
@@ -39,7 +45,8 @@ class Renderer {
         VkCommandBuffer command{};
         VkFence fence{};
         VkSemaphore acquired{};
-        Buffer instances;
+        Buffer instances, atmosphere;
+        VkDescriptorSet atmosphere_set{};
         VkImage hdr{};
         VkDeviceMemory hdr_memory{};
         VkImageView hdr_view{};
@@ -61,6 +68,9 @@ class Renderer {
     VkRenderPass render_pass_{}, hdr_pass_{};
     VkDescriptorPool descriptors_{};
     VkDescriptorSetLayout tone_set_layout_{};
+    VkDescriptorSetLayout atmosphere_set_layout_{};
+    VkBool32 manual_atmosphere_filtering_ = VK_FALSE;
+    std::unique_ptr<AtmosphereLut> atmospheres_[2];
     VkSampler sampler_{};
     VkImage background_{};
     VkDeviceMemory background_memory_{};
@@ -80,6 +90,7 @@ class Renderer {
     std::filesystem::path shaders_;
     std::string gpu_;
     unsigned errors_ = 0;
+    float effective_exposure_ = 300;
     uint32_t memory_type(uint32_t, VkMemoryPropertyFlags) const;
     Buffer buffer(VkDeviceSize, VkBufferUsageFlags);
     void release(Buffer&);
@@ -110,6 +121,10 @@ public:
 
     unsigned errors() const {
         return errors_;
+    }
+
+    float effective_exposure() const {
+        return effective_exposure_;
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL

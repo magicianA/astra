@@ -1,0 +1,84 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "atmosphere_model.glsl"
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// clang-format off
+layout(push_constant) uniform Dispatch {
+    int step;
+    int order;
+    int group;
+    int preset;
+    int layer;
+} pc;
+// clang-format on
+layout(binding = 0) uniform sampler2D transmittance;
+layout(binding = 1) uniform sampler3D scattering;
+layout(binding = 2) uniform sampler3D singleMie;
+layout(binding = 3) uniform sampler2D irradiance;
+layout(binding = 4) uniform sampler2D deltaIrradiance;
+layout(binding = 5) uniform sampler3D deltaRayleigh;
+layout(binding = 6) uniform sampler3D deltaMie;
+layout(binding = 7) uniform sampler3D deltaMultiple;
+layout(binding = 8) uniform sampler3D density;
+layout(binding = 9, rgba32f) uniform image2D outTransmittance;
+layout(binding = 10, rgba32f) uniform image3D outScattering;
+layout(binding = 11, rgba32f) uniform image3D outSingleMie;
+layout(binding = 12, rgba32f) uniform image2D outIrradiance;
+layout(binding = 13, rgba32f) uniform image2D outDeltaIrradiance;
+layout(binding = 14, rgba32f) uniform image3D outDeltaRayleigh;
+layout(binding = 15, rgba32f) uniform image3D outDeltaMie;
+layout(binding = 16, rgba32f) uniform image3D outDeltaMultiple;
+layout(binding = 17, rgba32f) uniform image3D outDensity;
+
+void main() {
+    ivec3 q = ivec3(gl_GlobalInvocationID) + ivec3(0, 0, pc.layer);
+    vec3 coord = vec3(q) + .5;
+    AtmosphereParameters atmosphere = earthAtmosphere(pc.group, pc.preset);
+    if (pc.step == 0) {
+        imageStore(
+            outTransmittance,
+            q.xy,
+            vec4(ComputeTransmittanceToTopAtmosphereBoundaryTexture(atmosphere, coord.xy), 1.));
+    } else if (pc.step == 1) {
+        imageStore(outDeltaIrradiance,
+                   q.xy,
+                   vec4(ComputeDirectIrradianceTexture(atmosphere, transmittance, coord.xy), 0.));
+    } else if (pc.step == 2) {
+        vec3 rayleigh, mie;
+        ComputeSingleScatteringTexture(atmosphere, transmittance, coord, rayleigh, mie);
+        imageStore(outDeltaRayleigh, q, vec4(rayleigh, 0.));
+        imageStore(outDeltaMie, q, vec4(mie, 0.));
+        imageStore(outScattering,
+                   q,
+                   imageLoad(outScattering, q) + vec4(TO_LUMINANCE[pc.group] * rayleigh, 0.));
+        imageStore(
+            outSingleMie, q, imageLoad(outSingleMie, q) + vec4(TO_LUMINANCE[pc.group] * mie, 0.));
+    } else if (pc.step == 3) {
+        vec3 value = ComputeScatteringDensityTexture(atmosphere,
+                                                     transmittance,
+                                                     deltaRayleigh,
+                                                     deltaMie,
+                                                     deltaMultiple,
+                                                     deltaIrradiance,
+                                                     coord,
+                                                     pc.order);
+        imageStore(outDensity, q, vec4(value, 0.));
+    } else if (pc.step == 4) {
+        vec3 value = ComputeIndirectIrradianceTexture(
+            atmosphere, deltaRayleigh, deltaMie, deltaMultiple, coord.xy, pc.order - 1);
+        imageStore(outDeltaIrradiance, q.xy, vec4(value, 0.));
+        imageStore(outIrradiance,
+                   q.xy,
+                   imageLoad(outIrradiance, q.xy) + vec4(TO_LUMINANCE[pc.group] * value, 0.));
+    } else {
+        float nu;
+        vec3 value =
+            ComputeMultipleScatteringTexture(atmosphere, transmittance, density, coord, nu);
+        imageStore(outDeltaMultiple, q, vec4(value, 0.));
+        imageStore(outScattering,
+                   q,
+                   imageLoad(outScattering, q) +
+                       vec4(TO_LUMINANCE[pc.group] * value / RayleighPhaseFunction(nu), 0.));
+    }
+}

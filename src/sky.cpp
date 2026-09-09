@@ -422,4 +422,123 @@ std::optional<Scenario> SkyEngine::next_moon_view(const Scenario& initial,
     }
     return std::nullopt;
 }
+
+std::optional<Scenario> SkyEngine::twilight_view(const Scenario& initial,
+                                                 bool dawn,
+                                                 int direction,
+                                                 uint64_t generation,
+                                                 const std::atomic<uint64_t>* latest) const {
+    validate(initial);
+    if (direction != -1 && direction != 1) {
+        throw std::invalid_argument("Twilight search direction must be -1 or +1");
+    }
+    const auto start = to_jd(initial.date, initial.julian);
+    Scenario candidate = initial;
+    auto cancelled = [&] {
+        return latest && latest->load() != generation;
+    };
+    auto sample = [&](double seconds) -> std::optional<Object> {
+        if (cancelled()) {
+            return std::nullopt;
+        }
+        candidate.date = from_jd(start.add_seconds(seconds), initial.julian);
+        if (candidate.date.year < -3000 || candidate.date.year >= 7000 ||
+            (candidate.scale == TimeScale::UTC &&
+             (candidate.date.year < 1973 || candidate.date.year >= 2027))) {
+            return std::nullopt;
+        }
+        auto sky = compute(candidate, generation, latest, Scope::SolarSystem);
+        if (!sky) {
+            return std::nullopt;
+        }
+        for (const auto& body : sky->bodies) {
+            if (body.body == 10) {
+                return body;
+            }
+        }
+        return std::nullopt;
+    };
+    constexpr double threshold = -.10452846326765347; // sin(-6 degrees)
+    double previous_time = direction * 2.;            // avoid returning the current event again
+    auto previous = sample(previous_time);
+    if (!previous) {
+        return std::nullopt;
+    }
+    for (int step = 1; step <= 370 * 48; ++step) {
+        double current_time = direction * (2. + step * 1800.);
+        auto current = sample(current_time);
+        if (!current) {
+            return std::nullopt;
+        }
+        double left_value = (direction > 0 ? previous : current)->geometric.z - threshold;
+        double right_value = (direction > 0 ? current : previous)->geometric.z - threshold;
+        bool crossing =
+            dawn ? left_value < 0 && right_value >= 0 : left_value > 0 && right_value <= 0;
+        double left = std::min(previous_time, current_time);
+        double right = std::max(previous_time, current_time);
+        if (!crossing && left_value * right_value > 0 &&
+            std::min(std::abs(left_value), std::abs(right_value)) < .005) {
+            // Near a grazing high-latitude event, both crossings may fall
+            // inside one coarse interval. Refine its extremum before deciding
+            // there is no event. Solar altitude is unimodal over half an hour.
+            const bool maximize = left_value < 0;
+            double lo = left, hi = right;
+            for (int iteration = 0; iteration < 24; ++iteration) {
+                const double t1 = lo + (hi - lo) / 3;
+                const double t2 = hi - (hi - lo) / 3;
+                auto sun1 = sample(t1), sun2 = sample(t2);
+                if (!sun1 || !sun2) {
+                    return std::nullopt;
+                }
+                if ((sun1->geometric.z < sun2->geometric.z) == maximize) {
+                    lo = t1;
+                } else {
+                    hi = t2;
+                }
+            }
+            const double middle = (lo + hi) / 2;
+            auto sun = sample(middle);
+            if (!sun) {
+                return std::nullopt;
+            }
+            const double value = sun->geometric.z - threshold;
+            if (maximize ? value > 0 : value < 0) {
+                crossing = true;
+                if (dawn == maximize) {
+                    right = middle;
+                } else {
+                    left = middle;
+                }
+            }
+        }
+        if (crossing) {
+            while (right - left > .1) {
+                const double middle = (left + right) / 2;
+                auto sun = sample(middle);
+                if (!sun) {
+                    return std::nullopt;
+                }
+                if ((sun->geometric.z < threshold) == dawn) {
+                    left = middle;
+                } else {
+                    right = middle;
+                }
+            }
+            auto sun = sample((left + right) / 2);
+            if (!sun) {
+                return std::nullopt;
+            }
+            candidate.azimuth = sun->azimuth() / rad;
+            candidate.elevation = 8;
+            candidate.roll = 0;
+            candidate.fov = default_camera_fov / rad;
+            candidate.projection = ProjectionKind::Perspective;
+            candidate.atmosphere = candidate.ground = true;
+            return candidate;
+        }
+        previous = current;
+        previous_time = current_time;
+    }
+    return std::nullopt;
+}
 } // namespace astro

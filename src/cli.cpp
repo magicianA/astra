@@ -13,6 +13,7 @@ int main(int argc, char** argv) {
         s.scale = TimeScale::UT1;
         std::string output;
         bool geometric = false;
+        int twilight = 0;
         for (int i = 1; i < argc; i++) {
             std::string a = argv[i];
             auto value = [&]() {
@@ -86,18 +87,43 @@ int main(int argc, char** argv) {
                 output = value();
             } else if (a == "--geometric") {
                 geometric = true;
+            } else if (a == "--twilight") {
+                const auto event = value();
+                if (event == "next-dawn") {
+                    twilight = 1;
+                } else if (event == "previous-dawn") {
+                    twilight = -1;
+                } else if (event == "next-dusk") {
+                    twilight = 2;
+                } else if (event == "previous-dusk") {
+                    twilight = -2;
+                } else {
+                    throw std::invalid_argument("Unknown twilight event");
+                }
             } else if (a == "--scenario") {
                 s = load_scenario(value());
             } else if (a == "--help") {
                 std::cout
                     << "astra_cli --data DIR --date YEAR-MM-DDTHH:MM:SS --site LON,LAT,HEIGHT "
-                       "--scale UT1|TT|TDB|UTC|LMT --no-atmosphere --output result.json\n";
+                       "--scale UT1|TT|TDB|UTC|LMT --no-atmosphere --output result.json "
+                       "--twilight next-dawn|previous-dawn|next-dusk|previous-dusk\n";
                 return 0;
             } else {
                 throw std::invalid_argument("Unknown argument: " + a);
             }
         }
         SkyEngine engine(data);
+        if (twilight) {
+            auto event = engine.twilight_view(s, abs(twilight) == 1, twilight > 0 ? 1 : -1);
+            if (!event) {
+                throw std::runtime_error("No twilight event within 370 days or the data range");
+            }
+            if (output.empty()) {
+                throw std::invalid_argument("--twilight requires --output SCENARIO.json");
+            }
+            save_scenario(*event, output);
+            return 0;
+        }
         auto sky = engine.compute(s);
         nlohmann::json j = {{"data_id", sky->data_id},
                             {"date", format_date(s.date)},
