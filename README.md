@@ -1,6 +1,6 @@
 # Astra
 
-English · [简体中文](README.zh-CN.md)
+English · [Simplified Chinese](README.zh-CN.md)
 
 A native **C++20 / SDL3 / Vulkan** desktop planetarium covering 10,000 years.
 Choose a location on Earth, an elevation, and a date and time to see the topocentric
@@ -94,7 +94,7 @@ when upstream files change.
 
 ## Explore the sky
 
-Open **View → Language / 语言** to switch between English and 简体中文 immediately.
+Open **View → Language** to switch between English and Simplified Chinese immediately.
 The first launch follows the system's preferred supported language, falling back to English.
 Your selection is saved in `ui-preferences.json` alongside the application's user settings.
 Changing language preserves the observing time, location, camera, selection, and playback.
@@ -120,7 +120,7 @@ timeline. Scene saving and PNG export are in the display panel.
 The default view uses **rectilinear perspective with a 60° vertical field of view**.
 Ordinary perspective zoom is limited to 1°–60°, so scrolling back out stops at the
 normal panorama. Switching back from another projection also limits the field to 60°.
-The “星空全景” button restores this view.
+The **Panorama** button restores this view.
 
 Panning is scaled to the window dimensions and field of view, introduces no camera roll,
 and stops at the zenith or nadir. Use R to level an older scene that contains an explicit
@@ -131,7 +131,7 @@ the viewing direction, and old saved scenes retain their original projection.
 Disable the ground to see objects below the horizon.
 
 The default scene is Beijing at **2026-09-04 22:00 local mean solar time**, which differs
-from civil time-zone time. Choose UTC for supported modern civil-time input. The “现在”
+from civil time-zone time. Choose UTC for supported modern civil-time input. The **Now**
 button fills in the current UTC time. Scenes, favourites, and manual exports are saved to:
 
 ```text
@@ -141,7 +141,7 @@ button fills in the current UTC time. Scenes, favourites, and manual exports are
 ### Find the Moon
 
 The Moon card shows its phase, illuminated fraction, altitude, and distance. In the
-default scene the Moon is about 3.4° below the horizon. Click “跳到可观月时刻” to search
+default scene the Moon is about 3.4° below the horizon. Click **Find a viewing time** to search
 the next 35 days at half-hour intervals for a time with:
 
 - Moon altitude of at least 8°;
@@ -153,8 +153,8 @@ centres a close-up on the Moon. It respects ground occlusion and the available d
 interval. It suggests a viewing time rather than computing an exact moonrise, and
 reports when no suitable time is found, for example during polar daylight.
 
-“定位月球” centres the Moon without changing the time. “拉近看月亮” adjusts the view,
-and “星空全景” restores the normal panorama.
+**Focus Moon** centres the Moon without changing the time. **Zoom to Moon** adjusts the view,
+and **Panorama** restores the normal panorama.
 
 ### Milky Way
 
@@ -165,7 +165,7 @@ the background retains dark dust lanes, star clouds, and faint starlight.
 Linear-light mipmaps and optional 8× anisotropic filtering stabilize zooming and panning.
 
 The background rotates with the observer's location and time. Its visibility responds
-to twilight, moonlight, extinction, and light pollution. Toggle it with “银河光带” in
+to twilight, moonlight, extinction, and light pollution. Toggle it with **Milky Way** in
 the display panel. To open a moonless Atacama example after packaging:
 
 ```sh
