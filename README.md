@@ -285,3 +285,5 @@ The detailed design and implementation documents are currently in Chinese:
 [Original design](docs/DESIGN.md) · [Implementation and validation](docs/IMPLEMENTATION.md) ·
 [Data sources](docs/DATA_SOURCES.md) · [Local Vulkan environment](docs/ENVIRONMENT.md) ·
 [Third-party notices and licences](THIRD_PARTY_NOTICES.md)
+
+Research proposals in English: [Dawn and dusk rendering](docs/TWILIGHT_DESIGN.md).

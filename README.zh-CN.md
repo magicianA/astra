@@ -185,3 +185,5 @@ PATH="$PWD/.venv/bin:$PATH" python3 scripts/format.py --check
 [原始设计](docs/DESIGN.md) · [实现与验证记录](docs/IMPLEMENTATION.md) ·
 [数据来源](docs/DATA_SOURCES.md) · [本机 Vulkan 环境](docs/ENVIRONMENT.md) ·
 [第三方署名与许可](THIRD_PARTY_NOTICES.md)
+
+[黄昏与黎明渲染研究及设计（英文）](docs/TWILIGHT_DESIGN.md)
