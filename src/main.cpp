@@ -56,6 +56,8 @@ int main(int argc, char** argv) {
                 }
             } else if (arg == "--screenshot") {
                 options.screenshot = value();
+            } else if (arg == "--hide-ui") {
+                options.hide_ui = true;
             } else if (arg == "--smoke") {
                 options.smoke = true;
             } else if (arg == "--scenario") {
@@ -78,7 +80,7 @@ int main(int argc, char** argv) {
             } else if (arg == "--help") {
                 std::cout << "Astra: --data DIR --scenario FILE --date YEAR-MM-DDTHH:MM:SS --year "
                              "YEAR --validation --frames N --play-speed RATE --screenshot FILE.png "
-                             "--smoke --language en|zh-CN\n";
+                             "--hide-ui --smoke --language en|zh-CN\n";
                 return 0;
             } else {
                 throw std::invalid_argument("Unknown argument: " + arg);

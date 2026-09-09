@@ -8,7 +8,7 @@ struct AppOptions {
     std::optional<Language> language;
     std::filesystem::path data = ASTRA_SOURCE_DATA, shaders, screenshot;
     Scenario scenario;
-    bool validation = false, smoke = false;
+    bool validation = false, smoke = false, hide_ui = false;
     int frames = 0;
     double playback_speed = 0;
 };

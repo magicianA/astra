@@ -905,7 +905,7 @@ int run_app(const AppOptions& options) {
                                frame > 10 && (!options.smoke || frame > 240);
                 try {
                     renderer.render(render,
-                                    ImGui::GetDrawData(),
+                                    options.hide_ui ? nullptr : ImGui::GetDrawData(),
                                     capture ? pending_shot : std::filesystem::path{});
                     if (capture) {
                         auto saved = sky->scenario;

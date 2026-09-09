@@ -1,0 +1,60 @@
+{
+  "atmosphere": true,
+  "atmosphere_model": "bruneton-spectral-v1",
+  "atmosphere_preset": 0,
+  "auto_exposure": true,
+  "azimuth": 190.0,
+  "background_id": "nasa-gaia-dr2-diffuse-16k-v1",
+  "data_id": "astra-v1-1814526cd25c6cdda2d5",
+  "date": [
+    2026,
+    6,
+    15,
+    0,
+    0,
+    0.0
+  ],
+  "delta_t": 69.0,
+  "effective_exposure": 299.9991149902344,
+  "elevation": 65.0,
+  "exposure": 1.0,
+  "exposure_model": "hemisphere-irradiance-v1",
+  "extinction": 0.12,
+  "fov": 60.0,
+  "grid": false,
+  "ground": true,
+  "height": 5050.0,
+  "julian": false,
+  "labels": false,
+  "latitude": -23.029,
+  "light_pollution": 0.0,
+  "location_name": "Atacama",
+  "longitude": -67.755,
+  "magnitude": 7.0,
+  "milky_way": true,
+  "observation": {
+    "delta_t_seconds": 69.17204389986267,
+    "extrapolated": false,
+    "jd_tdb": [
+      2461206.5,
+      0.18900894200709628
+    ],
+    "jd_tt": [
+      2461206.5,
+      0.18900893569328542
+    ],
+    "jd_ut1": [
+      2461206.5,
+      0.1882083333333333
+    ],
+    "model_version": "astra-astrometry-v1",
+    "time_quality": "Observed EOP"
+  },
+  "override_delta_t": false,
+  "pressure": 550.0,
+  "projection": "perspective",
+  "roll": 0.0,
+  "scale": 4,
+  "schema_version": 1,
+  "temperature": 15.0
+}

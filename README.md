@@ -12,6 +12,18 @@ The Time panel can jump to previous/next civil dawn or dusk; the View panel offe
 and hazy atmospheres and camera-independent automatic exposure. Try `examples/dawn.json`
 or `examples/dusk.json`. See [the model, limitations and measured checks](docs/TWILIGHT_IMPLEMENTATION.md).
 
+![Civil dusk in Astra: warm light along the western horizon beneath a blue sky](docs/images/dusk.png)
+
+*Civil dusk from Beijing, September 8, 2026, at 18:48 local mean solar time.*
+
+![The Milky Way and stars rendered above the Atacama Desert](docs/images/milky-way.png)
+
+*The Milky Way from the Atacama Desert, June 15, 2026, at 00:00 local mean solar time.*
+
+Both images are unedited 2880 × 1800 exports from the Vulkan renderer on macOS, with
+all UI and labels hidden. [Scene files and capture commands](docs/images/README.md)
+are included to reproduce them.
+
 The supported interval is **−3000-01-01 through +7000-01-01, exclusive of the end date**,
 using astronomical year numbering and the proleptic Gregorian calendar by default.
 Year 0 is 1 BCE; year −3000 is 3001 BCE. Historical and future dates use UT1, TT, TDB,
