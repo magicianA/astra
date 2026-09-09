@@ -59,6 +59,7 @@ add_library(
     src/camera.cpp
     src/background.cpp
     src/image_mips.cpp
+    src/photometry.cpp
     src/i18n.cpp
 )
 target_include_directories(
@@ -182,6 +183,9 @@ add_test(NAME camera_drag COMMAND camera_tests)
 add_executable(image_mips_tests tests/image_mips_tests.cpp)
 target_link_libraries(image_mips_tests PRIVATE astro_core)
 add_test(NAME image_mips COMMAND image_mips_tests)
+add_executable(photometry_tests tests/photometry_tests.cpp)
+target_link_libraries(photometry_tests PRIVATE astro_core)
+add_test(NAME photometry COMMAND photometry_tests)
 add_executable(i18n_tests tests/i18n_tests.cpp)
 target_link_libraries(i18n_tests PRIVATE astro_core)
 add_test(NAME i18n COMMAND i18n_tests)

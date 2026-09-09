@@ -12,6 +12,9 @@ void main() {
     const vec2 corners[6] =
         vec2[6](vec2(-1, -1), vec2(1, -1), vec2(1, 1), vec2(-1, -1), vec2(1, 1), vec2(-1, 1));
     local = corners[gl_VertexIndex];
+    if (positionRadiusKind.w > .5) {
+        local *= 1. + 2. / max(positionRadiusKind.z, 1.);
+    }
     vec2 offset = local * positionRadiusKind.z;
     if (positionRadiusKind.w > .5) {
         offset = projectDiscOffset(positionRadiusKind.xy, offset);

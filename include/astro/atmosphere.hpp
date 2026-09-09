@@ -25,6 +25,7 @@ class AtmosphereLut {
     VkBool32 manual_filtering_ = VK_FALSE;
     std::array<Image, 9> images_{};
     std::array<float, 64 * 16 * 4> irradiance_{};
+    std::array<float, 256 * 64 * 4> transmittance_{};
     uint32_t memory_type(uint32_t bits, VkMemoryPropertyFlags flags) const;
     void create_image(unsigned index);
     void begin();
@@ -47,5 +48,6 @@ public:
     AtmosphereLut(const AtmosphereLut&) = delete;
     VkDescriptorImageInfo descriptor(unsigned index) const;
     std::array<float, 3> irradiance(float height_km, float source_z) const;
+    std::array<float, 3> transmittance(float height_km, float source_z) const;
 };
 } // namespace astro

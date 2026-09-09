@@ -10,12 +10,14 @@ On macOS, Vulkan runs on Metal through MoltenVK. The interface supports **Englis
 Physical dawn and dusk use spectral Rayleigh/Mie multiple scattering and ozone absorption.
 The Time panel can jump to previous/next civil dawn or dusk; the View panel offers clear
 and hazy atmospheres and camera-independent automatic exposure. Try `examples/dawn.json`
-or `examples/dusk.json`. See [the model, limitations and measured checks](docs/TWILIGHT_IMPLEMENTATION.md).
+or `examples/dusk.json`. Brightness now uses a shared photometric scale for stars,
+the Moon, twilight and the Milky Way. See [calibration and limits](docs/PHOTOMETRY.md)
+and [atmospheric transport](docs/TWILIGHT_IMPLEMENTATION.md).
 
-![Stars and the Milky Way above the last orange glow of twilight in Astra](docs/images/dusk.png)
+![Stars and the Milky Way above the faint glow of twilight in Astra](docs/images/dusk.png)
 
 *Stars, the Milky Way, and lingering twilight from Beijing, September 8, 2026,
-at 19:50 local mean solar time.*
+at 19:28 local mean solar time under ideal clear skies without artificial skyglow.*
 
 ![The Milky Way and stars rendered above the Atacama Desert](docs/images/milky-way.png)
 
@@ -192,10 +194,11 @@ open dist/Astra.app --args --scenario "$PWD/examples/milky-way.json"
 
 The map is a distant background fixed in Galactic coordinates. It does not model the
 evolution of the Milky Way, dust, or background faint stars over 10,000 years. The linear
-EXR source is brightness-compressed and encoded as sRGB PNG, preserving its native pixels
+EXR source is encoded as sRGB PNG without highlight compression, preserving its native pixels
 except for averaging the polar rows. No blur, sharpening, or upscaling is applied.
-Brightness is a display approximation, not calibrated radiance. Individual catalogue
-stars are calculated separately.
+A regional photopic normalization sets the overall brightness; this is not a calibrated
+all-sky radiometric survey. Individual catalogue stars are calculated separately.
+See [photometric references and measured residuals](docs/PHOTOMETRY.md).
 
 The 16K texture and mipmaps use about **683 MiB of GPU memory**. Devices without 16K
 texture support use a supported lower mip level. Offline preparation uses the approximately
@@ -227,8 +230,9 @@ a separate `background_id`.
 **Data coverage does not imply uniform accuracy over 10,000 years.** ΔT, long-term
 nutation, unknown stellar radial velocities, binary photocentres, and stellar evolution
 limit distant-epoch reliability. Reported uncertainties use diagonal formal estimates;
-full covariance propagation is not implemented. G/Hp/V photometry is not fully transformed
-to Johnson V, and displayed brightness and colour are visual approximations. The
+full covariance propagation is not implemented. Gaia G is approximately transformed
+to V for brightness calculations; mixed catalogue bands, clipped colour proxies and
+non-spectral colour estimates still limit photometric accuracy. The
 `G ≤ 12` selection applies at the catalogue epoch and does not include every fainter
 star that could brighten at another epoch. The atmosphere does not model actual weather,
 and the ground plane does not include terrain.

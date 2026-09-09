@@ -4,7 +4,7 @@
   "atmosphere_preset": 0,
   "auto_exposure": true,
   "azimuth": 190.0,
-  "background_id": "nasa-gaia-dr2-diffuse-16k-v1",
+  "background_id": "nasa-gaia-dr2-photometric-16k-v2",
   "data_id": "astra-v1-1814526cd25c6cdda2d5",
   "date": [
     2026,
@@ -15,10 +15,10 @@
     0.0
   ],
   "delta_t": 69.0,
-  "effective_exposure": 299.9991149902344,
+  "effective_exposure": 218.1813507080078,
   "elevation": 65.0,
   "exposure": 1.0,
-  "exposure_model": "hemisphere-irradiance-v1",
+  "exposure_model": "hemisphere-moon-v2",
   "extinction": 0.12,
   "fov": 60.0,
   "grid": false,
@@ -51,6 +51,7 @@
     "time_quality": "Observed EOP"
   },
   "override_delta_t": false,
+  "photometry_model": "photometric-v1",
   "pressure": 550.0,
   "projection": "perspective",
   "roll": 0.0,

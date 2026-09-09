@@ -400,10 +400,11 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
         actions.recompute = true;
     }
     ImGui::TextDisabled("%s", tr("曝光"));
-    float exposure = float(scene.exposure);
+    float exposure = float(log2(scene.exposure));
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::SliderFloat("##exposure", &exposure, .1f, 4, "%.1f")) {
-        scene.exposure = exposure;
+    if (ImGui::SliderFloat(
+            "##exposure", &exposure, -24, 4, "%+.1f EV", ImGuiSliderFlags_AlwaysClamp)) {
+        scene.exposure = exp2(exposure);
     }
     ImGui::Checkbox(tr("自动曝光"), &scene.auto_exposure);
     if (ImGui::IsItemHovered()) {

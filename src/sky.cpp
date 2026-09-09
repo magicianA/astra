@@ -1,4 +1,5 @@
 #include "astro/sky.hpp"
+#include "astro/photometry.hpp"
 #include <SpiceUsr.h>
 #include <chrono>
 #include <erfa.h>
@@ -270,13 +271,21 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
             o.magnitude = -26.74 + 5 * log10(o.distance_au);
         } else if (b.id == 301) {
             o.magnitude = -12.73 + 1.49 * phaseangle + .0431 * pow(phaseangle, 4) +
-                          5 * log10(distance / 384400.);
+                          5 * log10(distance / 384400.) +
+                          5 * log10(norm(target.position - sun.position) / au_km);
         } else {
             o.magnitude =
                 b.m0 + 5 * log10(o.distance_au * norm(target.position - sun.position) / au_km) -
                 2.5 * log10(std::max(.001, (sin(phaseangle) + (pi - phaseangle) * ca) / pi));
         }
         // The shader uses the actual projected Sun direction for the bright limb.
+        o.illuminance_lux = b.id == 10 ? photometry::solar_lux / (o.distance_au * o.distance_au)
+                                       : photometry::illuminance(o.magnitude);
+        if (b.id == 10 || b.id == 301) {
+            for (int i = 0; i < 3; ++i) {
+                o.color[i] = float(photometry::solar_rgb[i] / photometry::solar_lux);
+            }
+        }
         Vec3 lightenu = out->celestial_to_enu * illumination;
         Vec3 east = unit(cross({0, 0, 1}, o.geometric));
         Vec3 north = cross(o.geometric, east);
@@ -366,6 +375,13 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
         o.magnitude = mag;
         o.distance_au = px2 > 0 ? 1 / (px2 * arcsec) : 0;
         o.color = star_color(star.bv);
+        const double visual =
+            star.flags & Gaia ? photometry::gaia_visual_magnitude(mag, star.bv) : mag;
+        o.illuminance_lux = photometry::illuminance(visual);
+        for (auto& channel : o.color) {
+            channel =
+                channel <= .04045f ? channel / 12.92f : powf((channel + .055f) / 1.055f, 2.4f);
+        }
         o.formal_error_arcsec = hypot(hypot(star.ra_error, star.dec_error),
                                       abs(years) * hypot(star.pmra_error, star.pmdec_error)) /
                                 1000.;

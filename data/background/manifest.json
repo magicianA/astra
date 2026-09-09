@@ -1,5 +1,5 @@
 {
-  "background_id": "nasa-gaia-dr2-diffuse-16k-v1",
+  "background_id": "nasa-gaia-dr2-photometric-16k-v2",
   "source_page": "https://svs.gsfc.nasa.gov/4851/",
   "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/milkyway_2020_16k_gal.exr",
   "source_sha256": "ee023f03e99466b3829117c15a001269ba32a3fecb6012d0b2d41f201c955351",
@@ -11,9 +11,83 @@
     16384,
     8192
   ],
-  "processing": "Native 16384x8192, no spatial filtering except linear-light polar-row averages; linear EXR decoded, per-channel gain 16 and x/(1+x), sRGB8 PNG encoding; runtime linear-light mipmaps and optional 8x anisotropic filtering",
-  "limitations": "Gaia DR2 faint-star visualization with Hipparcos/Tycho foreground omitted; fixed distant background, not an evolving star catalogue or calibrated radiance; Gaia survey artefacts and source pixel resolution remain",
+  "calibration": {
+    "reference": "data/photometry/gambons-table3.json",
+    "reference_sha256": "d2165f0e61c89c6c7cb8a8e42ffb9f4d13930c18649371eb21c8bf0d639e96a3",
+    "catalogue_sha256": "c9afd6582b2fe17d34830c80cf463435be692c93064f1a9198ce9b61c5e3285d",
+    "radiance_scale_cd_m2": 0.017437294947781852,
+    "training_pixels": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "validation_pixels": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "reference_luminance": [
+      9.5520282e-05,
+      0.000107812916,
+      9.9423627e-05,
+      0.000112746908,
+      0.000113358876,
+      0.00016513164199999998,
+      0.000103518895,
+      0.000122852576,
+      9.9546567e-05
+    ],
+    "catalogue_foreground": [
+      2.094833689625375e-05,
+      2.8564441890921444e-05,
+      1.5819516193005256e-05,
+      2.0464738554437645e-05,
+      3.842145451926626e-05,
+      0.00010501551878405735,
+      1.825171784730628e-05,
+      3.9082715375116095e-05,
+      1.3485322597261984e-05
+    ],
+    "nasa_linear_luminance": [
+      0.003341557883964722,
+      0.004500419911260738,
+      0.003731944813062067,
+      0.006008519926119739,
+      0.004906119512931141,
+      0.004815660870741172,
+      0.005024618417726378,
+      0.006381360228201502,
+      0.004678234237993532
+    ],
+    "predicted_total": [
+      7.921606730403242e-05,
+      0.00010703959127244517,
+      8.089453862721312e-05,
+      0.00012523707270581196,
+      0.0001239709075153144,
+      0.00018898761775566314,
+      0.00010586747119725809,
+      0.0001503563758423102,
+      9.506107283996667e-05
+    ],
+    "relative_residual": [
+      -0.170688510906695,
+      -0.0071728393614253205,
+      -0.18636504150856303,
+      0.11078055201134163,
+      0.09361447369427345,
+      0.1444664115655263,
+      0.022687415638063868,
+      0.22387646020796637,
+      -0.04505925513265885
+    ]
+  },
+  "processing": "Native 16384x8192, no spatial filtering except linear-light polar-row averages; linear EXR decoded without highlight compression, sRGB8 PNG encoding; runtime linear-light mipmaps and optional 8x anisotropic filtering",
+  "limitations": "Gaia DR2 faint-star visualization with Hipparcos/Tycho foreground omitted; fixed distant background with one regional photopic normalization; not an all-sky radiometric survey or evolving star catalogue. NASA colour balance, Gaia survey artefacts and source pixel resolution remain; regional normalization includes diffuse Galactic and extragalactic light.",
   "runtime_sha256": {
-    "background/milky-way.png": "32c3fd8281fdbcd937860efbef1eee71c708324c4120a8274353a1ac21fadd76"
+    "background/milky-way.png": "b33eec66aa88f40b702dce60ab146d0f0eb34c77b1c93c322bbd3fb353393dc8"
   }
 }

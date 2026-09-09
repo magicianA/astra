@@ -1,5 +1,7 @@
 #include "astro/renderer.hpp"
+#include "astro/background_calibration.hpp"
 #include "astro/image_mips.hpp"
+#include "astro/photometry.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <algorithm>
 #include <array>
@@ -243,11 +245,7 @@ Renderer::Renderer(SDL_Window* w,
                         VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT |
                         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
         if ((fp.optimalTilingFeatures & required) != required) {
-            hdr_format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
-            vkGetPhysicalDeviceFormatProperties(physical_, hdr_format_, &fp);
-            if ((fp.optimalTilingFeatures & required) != required) {
-                throw std::runtime_error("A floating-point HDR render target is required");
-            }
+            throw std::runtime_error("RGBA32F blending is required for photometric HDR rendering");
         }
         const auto atmosphere_path = background.parent_path().parent_path() / "atmosphere";
         for (unsigned i = 0; i < 2; ++i) {
@@ -261,7 +259,7 @@ Renderer::Renderer(SDL_Window* w,
                 i);
         }
         for (auto& f : frames_) {
-            f.atmosphere = buffer(48, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            f.atmosphere = buffer(80, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
             VkDescriptorSetAllocateInfo allocate{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
             allocate.descriptorPool = descriptors_;
             allocate.descriptorSetCount = 1;
@@ -269,7 +267,7 @@ Renderer::Renderer(SDL_Window* w,
             check(vkAllocateDescriptorSets(device_, &allocate, &f.atmosphere_set));
             std::array<VkDescriptorImageInfo, 8> images{};
             std::array<VkWriteDescriptorSet, 9> writes{};
-            VkDescriptorBufferInfo uniform{f.atmosphere.handle, 0, 48};
+            VkDescriptorBufferInfo uniform{f.atmosphere.handle, 0, 80};
             for (uint32_t i = 0; i < writes.size(); ++i) {
                 auto& write = writes[i];
                 write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -750,7 +748,7 @@ void Renderer::create_pipelines() {
     };
     sky_layout_ = layout(128, VK_SHADER_STAGE_FRAGMENT_BIT, true);
     stars_layout_ = layout(128, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, true);
-    tone_layout_ = layout(4, VK_SHADER_STAGE_FRAGMENT_BIT, false);
+    tone_layout_ = layout(8, VK_SHADER_STAGE_FRAGMENT_BIT, false);
     auto pipeline = [&](const char* vert,
                         const char* frag,
                         VkPipelineLayout layout,
@@ -865,16 +863,59 @@ void Renderer::render(const RenderScene& s,
     auto& f = frames_[frame_];
     check(vkWaitForFences(device_, 1, &f.fence, VK_TRUE, UINT64_MAX));
     const auto& atmosphere = *atmospheres_[s.atmosphere_preset];
+    const float twilight = float(photometry::twilight_gain(-asin(s.geometric_sun.z) / rad));
+    const float pollution = float(photometry::pollution_luminance(s.pollution));
+    const auto solar = atmosphere.irradiance(s.height_km, float(s.geometric_sun.z));
+    auto lunar = atmosphere.irradiance(s.height_km, float(s.geometric_moon.z));
+    constexpr float luminance[] = {.2126f, .7152f, .0722f};
+    const auto transmission = atmosphere.transmittance(s.height_km, float(s.geometric_moon.z));
+    const double visible_moon = std::clamp((s.geometric_moon.z + .0047) / .0094, 0., 1.);
+    double moon_transmission = 0, old_lunar_mean = 0;
+    for (int i = 0; i < 3; ++i) {
+        moon_transmission +=
+            luminance[i] * photometry::solar_rgb[i] * transmission[i] / photometry::solar_lux;
+        lunar[i] *= s.lunar_flux;
+        old_lunar_mean += luminance[i] * lunar[i] / pi;
+    }
+    double lunar_mean = 0;
+    // Deterministic cosine-weighted hemisphere integral of the same empirical
+    // lunar law used by the fragment shader. It is independent of the camera.
+    if (s.atmosphere && s.lunar_flux > 1e-10 && visible_moon > 0) {
+        for (int j = 0; j < 12; ++j) {
+            const double mu = (j + .5) / 12;
+            const auto t = atmosphere.transmittance(s.height_km, float(mu));
+            double view_t = 0;
+            for (int c = 0; c < 3; ++c) {
+                view_t += luminance[c] * photometry::solar_rgb[c] * t[c] / photometry::solar_lux;
+            }
+            for (int k = 0; k < 24; ++k) {
+                const double cosine =
+                    mu * s.geometric_moon.z +
+                    sqrt((1 - mu * mu) *
+                         std::max(0., 1 - s.geometric_moon.z * s.geometric_moon.z)) *
+                        cos(2 * pi * (k + .5) / 24);
+                lunar_mean += 2 * mu / (12 * 24) *
+                              photometry::lunar_sky_luminance(s.lunar_flux * photometry::solar_lux,
+                                                              acos(std::clamp(cosine, -1., 1.)),
+                                                              moon_transmission,
+                                                              view_t);
+            }
+        }
+    }
+    lunar_mean = std::lerp(old_lunar_mean, lunar_mean, visible_moon);
+    for (auto& c : lunar) {
+        c *= float(lunar_mean / std::max(1e-20, old_lunar_mean));
+    }
     float adaptation = 300;
     if (s.atmosphere && s.auto_exposure) {
-        const auto solar = atmosphere.irradiance(s.height_km, float(s.geometric_sun.z));
-        const auto lunar = atmosphere.irradiance(s.height_km, float(s.geometric_moon.z));
-        constexpr float luminance[] = {.2126f, .7152f, .0722f};
-        float mean = 0;
+        const double pollution_mean_ratio = (1.5 + .5 * exp(-pi)) / (1 + 2 * exp(-pi));
+        double mean = photometry::night_floor + pollution * pollution_mean_ratio;
+        const double moon_illuminance =
+            s.lunar_flux * photometry::solar_lux * moon_transmission * visible_moon;
         for (int i = 0; i < 3; ++i) {
-            mean += luminance[i] * (solar[i] * s.solar_flux + lunar[i] * s.lunar_flux) / float(pi);
+            mean += luminance[i] * (solar[i] * s.solar_flux * twilight + lunar[i]) / float(pi);
         }
-        adaptation = .12f / (.0004f + mean);
+        adaptation = float(photometry::exposure_gain(mean, moon_illuminance));
     }
     effective_exposure_ = adaptation * s.exposure;
     const float atmosphere_uniform[] = {float(s.geometric_sun.x),
@@ -888,7 +929,15 @@ void Renderer::render(const RenderScene& s,
                                         s.height_km,
                                         float(s.atmosphere_preset),
                                         s.auto_exposure ? 1.f : 0.f,
-                                        adaptation};
+                                        adaptation,
+                                        twilight,
+                                        float(photometry::night_floor),
+                                        pollution,
+                                        background_radiance_scale,
+                                        lunar[0],
+                                        lunar[1],
+                                        lunar[2],
+                                        0};
     memcpy(f.atmosphere.mapped, atmosphere_uniform, sizeof(atmosphere_uniform));
     uint32_t image;
     auto acquired =
@@ -1026,7 +1075,9 @@ void Renderer::render(const RenderScene& s,
     vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_pipeline_);
     vkCmdBindDescriptorSets(
         f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_layout_, 0, 1, &f.tone_set, 0, nullptr);
-    vkCmdPushConstants(f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &s.exposure);
+    const float display[] = {s.exposure, adaptation};
+    vkCmdPushConstants(
+        f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(display), display);
     vkCmdDraw(f.command, 3, 1, 0, 0);
     if (ui) {
         ImGui_ImplVulkan_RenderDrawData(ui, f.command);

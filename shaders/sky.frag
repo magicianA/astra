@@ -22,6 +22,12 @@ void main() {
                                 ? GetTransmittanceToSun(model, clearTransmittance, r, a.sun.z)
                                 : GetTransmittanceToSun(model, hazyTransmittance, r, a.sun.z);
             irradiance += sunlight * SOLAR_ILLUMINANCE * max(0., a.sun.z) * a.sun.w;
+            vec3 moonlight = a.settings.y < .5
+                                 ? GetTransmittanceToSun(model, clearTransmittance, r, a.moon.z)
+                                 : GetTransmittanceToSun(model, hazyTransmittance, r, a.moon.z);
+            irradiance += moonlight * SOLAR_ILLUMINANCE * max(0., a.moon.z) * a.moon.w;
+            float pollutionMean = (1.5 + .5 * exp(-PI)) / (1. + 2. * exp(-PI));
+            irradiance += PI * vec3(a.photometry.y + a.photometry.z * pollutionMean);
         }
         vec3 ground = vec3(.055, .065, .07) * irradiance / PI + vec3(1e-6, 2e-6, 2.7e-6);
         outputColor = vec4(safeHdr(ground * adaptation()), 1.);
@@ -44,11 +50,7 @@ void main() {
         dx.x -= round(dx.x);
         dy.x -= round(dy.x);
         vec3 light = textureGrad(milkyWay, mapUV, dx, dy).rgb;
-        float luminance = dot(light, vec3(.2126, .7152, .0722));
-        // A restrained night-sky display, rather than the source image's
-        // photographic colour. This remains a visual, uncalibrated intensity.
-        light = mix(vec3(luminance), light, .35);
-        sky += light * .000217 * transmittance;
+        sky += light * a.photometry.w * transmittance;
     }
     sky *= exposure;
     outputColor = vec4(safeHdr(sky), 1.);

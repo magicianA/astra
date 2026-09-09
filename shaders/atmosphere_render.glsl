@@ -15,6 +15,8 @@ layout(set = 1, binding = 8) uniform AtmosphereFrame {
     vec4 sun;
     vec4 moon;
     vec4 settings; // observer height (km), preset, automatic exposure, metered gain
+    vec4 photometry; // twilight gain, natural floor, pollution, diffuse-map radiance scale
+    vec4 lunarIrradiance; // hemisphere integral of the calibrated lunar sky, lux
 } a;
 // clang-format on
 
@@ -60,7 +62,7 @@ vec3 diffuseIrradiance(vec3 source) {
 }
 
 vec3 skyIrradiance() {
-    return a.sun.w * diffuseIrradiance(a.sun.xyz) + a.moon.w * diffuseIrradiance(a.moon.xyz);
+    return a.sun.w * a.photometry.x * diffuseIrradiance(a.sun.xyz) + a.lunarIrradiance.xyz;
 }
 
 float adaptation() {
@@ -69,8 +71,37 @@ float adaptation() {
 
 vec3 nightEmission(vec3 direction) {
     float horizon = exp(-max(0., asin(clamp(direction.z, -1., 1.))) * 2.);
-    // Display approximations for airglow and local light pollution, not weather.
-    return vec3(1e-6, 2.3e-6, 5.3e-6) + p.options.x * vec3(6e-5, 5e-5, 4e-5) * horizon;
+    // Neutral unresolved airglow floor; pollution is an extra zenith luminance.
+    // The warm skyglow spectrum has unit photopic luminance.
+    return vec3(a.photometry.y) +
+           a.photometry.z * (1. + 2. * horizon) / (1. + 2. * exp(-PI)) * vec3(1.25, .97, .56102493);
+}
+
+vec3 moonSky(vec3 direction, vec3 viewTransmission) {
+    vec3 unused;
+    vec3 raw = a.moon.w * sourceSky(direction, a.moon.xyz, unused);
+    float visible = clamp((a.moon.z + .0047) / .0094, 0., 1.);
+    if (visible <= 0.) {
+        return raw;
+    }
+    AtmosphereParameters model = earthAtmosphere(SPECTRAL_GROUPS, int(a.settings.y));
+    float r = min(length(atmosphereCamera()), model.top_radius);
+    vec3 moonTransmission = a.settings.y < .5 ? GetTransmittanceToTopAtmosphereBoundary(
+                                                    model, clearTransmittance, r, max(0., a.moon.z))
+                                              : GetTransmittanceToTopAtmosphereBoundary(
+                                                    model, hazyTransmittance, r, max(0., a.moon.z));
+    const vec3 y = vec3(.2126, .7152, .0722);
+    float solarLux = dot(SOLAR_ILLUMINANCE, y);
+    float moonT = dot(moonTransmission * SOLAR_ILLUMINANCE, y) / solarLux;
+    float viewT = dot(viewTransmission * SOLAR_ILLUMINANCE, y) / solarLux;
+    float cosine = clamp(dot(direction, a.moon.xyz), -1., 1.);
+    float rho = degrees(acos(cosine));
+    float scattering = pow(10., 5.36) * (1.06 + cosine * cosine) + pow(10., 6.15 - rho / 40.);
+    // Empirical lunar angular normalization in cd/m²; see ING TN 127.
+    float luminance = scattering * a.moon.w * solarLux / 10.76391 * moonT *
+                      (1. - clamp(viewT, 0., 1.)) * 1e-5 / PI;
+    vec3 colour = raw / max(dot(raw, y), 1e-20);
+    return mix(raw, colour * luminance, visible);
 }
 
 vec3 physicalSky(vec3 direction, out vec3 transmittance) {
@@ -78,16 +109,14 @@ vec3 physicalSky(vec3 direction, out vec3 transmittance) {
     if (p.sunAtmosphere.w < .5) {
         return vec3(0.);
     }
-    vec3 light = a.sun.w * sourceSky(direction, a.sun.xyz, transmittance);
+    vec3 light = a.sun.w * a.photometry.x * sourceSky(direction, a.sun.xyz, transmittance);
     if (a.moon.w > 1e-10) {
-        vec3 unused;
-        // Lunar transport uses a neutral, phase-scaled solar spectrum.
-        light += a.moon.w * sourceSky(direction, a.moon.xyz, unused);
+        light += moonSky(direction, transmittance);
     }
     return light + nightEmission(direction);
 }
 
 vec3 safeHdr(vec3 value) {
-    // Keep bright resolved sources finite in the half-float HDR attachment.
-    return max(value, vec3(0.)) * min(1., 60000. / max(1., max(value.r, max(value.g, value.b))));
+    // RGBA32F retains solar and lunar radiance; tone mapping happens after blending.
+    return max(value, vec3(0.));
 }

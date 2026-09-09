@@ -2,7 +2,7 @@
 #include "math.hpp"
 
 namespace astro {
-inline constexpr const char* background_id = "nasa-gaia-dr2-diffuse-16k-v1";
+inline constexpr const char* background_id = "nasa-gaia-dr2-photometric-16k-v2";
 
 // Unit quaternion (x, y, z, w), mapping the current local sky into the
 // Galactic coordinates of the fixed, distant Gaia background.

@@ -15,6 +15,7 @@ struct Object {
     double magnitude{}, distance_au{}, angular_radius{}, phase = 1, bright_limb_angle{},
                                                          formal_error_arcsec{};
     std::array<float, 3> color{1, 1, 1};
+    double illuminance_lux{}; // Above the atmosphere; native catalogue magnitude stays separate.
 
     double azimuth() const {
         return wrap(atan2(observed.x, observed.y));

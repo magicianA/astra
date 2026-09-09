@@ -322,6 +322,7 @@ void AtmosphereLut::transfer(const std::filesystem::path& path,
             }
         }
         std::copy(data.end() - irradiance_.size(), data.end(), irradiance_.begin());
+        std::copy_n(data.begin(), transmittance_.size(), transmittance_.begin());
         if (write) {
             header.crc = checksum(data);
             std::filesystem::create_directories(path.parent_path());
@@ -522,6 +523,28 @@ std::array<float, 3> AtmosphereLut::irradiance(float height, float source_z) con
                              std::lerp(std::lerp(value(0, 0), value(1, 0), fx),
                                        std::lerp(value(0, 1), value(1, 1), fx),
                                        fy));
+    }
+    return result;
+}
+
+std::array<float, 3> AtmosphereLut::transmittance(float height, float source_z) const {
+    // Bruneton's radius/distance mapping, matching GetTransmittanceToTopAtmosphereBoundary.
+    const double r = 6360. + std::clamp(double(height), .001, 59.999);
+    const double h = sqrt(6420. * 6420. - 6360. * 6360.);
+    const double rho = sqrt(r * r - 6360. * 6360.);
+    const double mu = std::max(0., double(source_z));
+    const double d = -r * mu + sqrt(r * r * (mu * mu - 1) + 6420. * 6420.);
+    const double x = std::clamp((d - (6420. - r)) / (rho + h - (6420. - r)), 0., 1.) * 255;
+    const double y = std::clamp(rho / h, 0., 1.) * 63;
+    const int ix = int(x), iy = int(y);
+    std::array<float, 3> result{};
+    for (int c = 0; c < 3; ++c) {
+        auto value = [&](int dx, int dy) {
+            return transmittance_[(std::min(iy + dy, 63) * 256 + std::min(ix + dx, 255)) * 4 + c];
+        };
+        result[c] = float(std::lerp(std::lerp(value(0, 0), value(1, 0), x - ix),
+                                    std::lerp(value(0, 1), value(1, 1), x - ix),
+                                    y - iy));
     }
     return result;
 }

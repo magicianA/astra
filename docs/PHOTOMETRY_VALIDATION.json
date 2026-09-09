@@ -1,0 +1,45 @@
+{
+  "model": "photometric-v1",
+  "twilight": {
+    "reference": "https://arxiv.org/abs/astro-ph/0604128",
+    "test": "400 midpoints between calibration knots, Paranal zenith",
+    "maximum_interpolation_error_mag": 0.01278863249660628,
+    "caution": "Agreement with the fitted curve, not independent atmospheric accuracy"
+  },
+  "milky_way": {
+    "reference": "https://arxiv.org/abs/2101.01500",
+    "training_pixels": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "held_out_pixels": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "held_out_relative_residual": [
+      0.1444664115655263,
+      0.022687415638063868,
+      0.22387646020796637,
+      -0.04505925513265885
+    ],
+    "maximum_held_out_error_percent": 22.387646020796637,
+    "radiance_scale_cd_m2": 0.017437294947781852,
+    "galactic_plane_luminance_p50_p90_p99": [
+      6.410834258709532e-05,
+      0.0002456500935871951,
+      0.0005370096582547276
+    ],
+    "caution": "Nine nearby HEALPix cells; this does not measure full-sky accuracy"
+  },
+  "unit_references": {
+    "zero_magnitude_illuminance_lux": 2.54e-06,
+    "full_moon_above_atmosphere_lux": 0.313930648094906,
+    "dark_sky_22mag_cd_m2": 0.0001712710589671545,
+    "natural_floor_cd_m2": 0.00015
+  }
+}

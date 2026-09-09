@@ -1,5 +1,6 @@
 #include "astro/app.hpp"
 #include "astro/background.hpp"
+#include "astro/photometry.hpp"
 #include "astro/renderer.hpp"
 #include "astro/text.hpp"
 #include "astro/ui.hpp"
@@ -262,9 +263,8 @@ RenderScene render_scene(const SkySnapshot& sky,
         if (o.body == 301) {
             result.moon = o.observed;
             result.geometric_moon = o.geometric;
-            // Full Moon horizontal illuminance is approximately 0.25 lux.
-            // The ephemeris magnitude already includes phase and distance.
-            result.lunar_flux = float(.25 / 130000. * pow(10., -.4 * (o.magnitude + 12.74)));
+            // One flux drives both the resolved surface and atmospheric moonlight.
+            result.lunar_flux = float(o.illuminance_lux / photometry::solar_lux);
         }
     }
     const auto projection = camera.prepare();
@@ -288,23 +288,29 @@ RenderScene render_scene(const SkySnapshot& sky,
         // Unresolved sources share a compact screen-space point-spread function.
         // Its six-sigma support is independent of magnitude and camera zoom.
         float radius = disk ? float(o.angular_radius * projection.scale) : 3.f;
-        // Diffuse light uses photometric RGB; unresolved sources retain a
-        // chosen display gain for their fixed pixel footprint.
-        float strength = disk ? (o.body == 10 ? 1.9e9f * result.solar_flux : 4000.f)
-                              : float(.02 * pow(10., -.4 * mag));
+        // A point source's integrated illuminance is spread over a Gaussian
+        // footprint in solid angle. Resolved discs use their mean luminance.
+        const double pixel_area = photometry::pixel_solid_angle(p.x - camera.width / 2,
+                                                                p.y - camera.height / 2,
+                                                                projection.scale,
+                                                                int(projection.kind));
+        float strength =
+            float(disk ? photometry::mean_disc_luminance(o.illuminance_lux, o.angular_radius)
+                       : o.illuminance_lux / (2 * pi * .5 * .5 * pixel_area));
         if (!disk) {
             // Fade through the detection limit instead of toggling stars on/off.
             const double limit = s.magnitude;
             const double visibility = std::clamp((limit - mag) / .75, 0., 1.);
             strength *= float(visibility * visibility * (3 - 2 * visibility));
         }
+        const auto color = photometry::unit_luminance(o.color);
         result.points.push_back({float(p.x),
                                  float(p.y),
                                  radius,
                                  disk ? (o.body == 10 ? 1.f : 2.f) : 0.f,
-                                 o.color[0],
-                                 o.color[1],
-                                 o.color[2],
+                                 color[0],
+                                 color[1],
+                                 color[2],
                                  strength,
                                  float(o.phase),
                                  limb,

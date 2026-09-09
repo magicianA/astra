@@ -129,6 +129,7 @@ def package(build, destination):
         "catalog/stars.bin",
         "background/milky-way.png",
         "background/manifest.json",
+        "photometry/gambons-table3.json",
         "atmosphere/clear.bin",
         "atmosphere/hazy.bin",
         "atmosphere/manifest.json",
@@ -148,6 +149,7 @@ def package(build, destination):
         copy_file(ROOT / "data" / relative, resources / "data" / relative)
     shutil.copytree(build / "shaders", resources / "shaders", dirs_exist_ok=True)
     copy_file(ROOT / "THIRD_PARTY_NOTICES.md", resources / "THIRD_PARTY_NOTICES.md")
+    copy_file(ROOT / "docs/PHOTOMETRY.md", resources / "PHOTOMETRY.md")
     shutil.copytree(ROOT / "data/licenses", resources / "licenses", dirs_exist_ok=True)
     plist_path = contents / "Info.plist"
     with plist_path.open("rb") as stream:

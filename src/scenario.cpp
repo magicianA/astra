@@ -1,5 +1,6 @@
 #include "astro/scenario.hpp"
 #include "astro/background.hpp"
+#include "astro/photometry.hpp"
 #include "json.hpp"
 #include <cmath>
 #include <fstream>
@@ -47,7 +48,7 @@ void validate(const Scenario& s) {
         !range(s.height, -500, 100000) || !range(s.fov, 1, maximum_fov(s.projection) / rad) ||
         !range(s.elevation, -90, 90) || !range(s.azimuth, 0, 360) || !range(s.roll, -180, 180) ||
         !range(s.magnitude, -2, 16) || !range(s.pressure, 0, 1200) ||
-        !range(s.temperature, -90, 60) || !range(s.exposure, .05, 10) ||
+        !range(s.temperature, -90, 60) || !range(s.exposure, 0x1p-24, 16) ||
         !range(s.extinction, 0, 2) || !range(s.light_pollution, 0, 1) ||
         !range(s.custom_delta_t, -86400, 1e7)) {
         throw std::invalid_argument(
@@ -84,7 +85,8 @@ void save_scenario(const Scenario& s,
         {"atmosphere_model", "bruneton-spectral-v1"},
         {"atmosphere_preset", s.atmosphere_preset},
         {"auto_exposure", s.auto_exposure},
-        {"exposure_model", "hemisphere-irradiance-v1"},
+        {"exposure_model", "hemisphere-moon-v2"},
+        {"photometry_model", photometry::model_id},
         {"ground", s.ground},
         {"grid", s.grid},
         {"labels", s.labels},
@@ -142,7 +144,7 @@ Scenario load_scenario(const std::filesystem::path& p, const std::string& id) {
     const auto background = j.value("background_id", std::string(background_id));
     // Older scenes retain their camera/time settings and use the updated map.
     if (background != background_id && background != "gaia-edr3-diffuse-v1" &&
-        background != "gaia-edr3-diffuse-v2") {
+        background != "gaia-edr3-diffuse-v2" && background != "nasa-gaia-dr2-diffuse-16k-v1") {
         throw std::runtime_error("Scenario background version differs from the installed map");
     }
     Scenario s;

@@ -43,3 +43,12 @@ averages, preserving the original spatial detail. Runtime rendering adds
 linear-light mipmaps, optional anisotropic filtering and atmospheric attenuation.
 Source credits, changes and checksums are recorded in data/background/manifest.json
 and data/licenses/NASA-SVS-background.txt. No planet surface imagery is included.
+
+## Photometric calibration references
+
+Brightness calibration uses published numerical relations from Patat et al. (2006),
+Krisciunas & Schaefer (1991) as reproduced by ING TN 127, ESA Gaia DR3 photometric
+relations and nine tabulated photopic samples from Masana et al. (2021),
+DOI [10.1093/mnras/staa4005](https://doi.org/10.1093/mnras/staa4005).
+The project implements its own calibration code; no author software is bundled.
+See `docs/PHOTOMETRY.md` and `data/photometry/gambons-table3.json` for sources and limits.

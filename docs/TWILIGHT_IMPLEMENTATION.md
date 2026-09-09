@@ -17,14 +17,14 @@ single Mie (256×128×32), and indirect irradiance (64×16), all RGBA32F. Both p
 presets occupy about 64.53 MiB of image payload in total. The offline generator uses
 five additional working images. Runtime uploads completed tables once; time, camera
 and preset changes never regenerate them. Devices without RGBA32F linear filtering
-use explicit bilinear/trilinear sampling specialized into the shaders. A floating-point
-HDR attachment is required; there is no silent 8-bit rendering fallback.
+use explicit bilinear/trilinear sampling specialized into the shaders. An RGBA32F
+HDR attachment with blending is required; no lower-precision fallback is used.
 
 The atmosphere uses the ephemeris Sun's **geometric** local direction and inverse-square
 distance factor. The visible discs retain the existing apparent/refraction calculation.
-Lunar sky illumination uses the Moon's magnitude, including phase and distance, to
-scale a neutral solar-spectrum transport approximation. A full Moon corresponds to an
-approximate 0.25 lux source normalization. This is not a lunar spectral reflectance model.
+Lunar surface and sky illumination share phase- and distance-dependent illuminance.
+The lunar scattering normalization and empirical twilight calibration are detailed
+in [Brightness calibration](PHOTOMETRY.md).
 
 Sky radiance and transmitted Milky Way/stellar light share one HDR composition.
 The old global daylight magnitude penalty, separate Milky Way twilight fade, and scalar
@@ -33,10 +33,9 @@ remain unchanged. Opaque resolved discs preserve foreground atmospheric radiance
 occluding the background. The geometric ground takes a separate shader path so rays
 through the opaque surface do not evaluate the space-background transport.
 
-The Milky Way image, stellar point gain, airglow/light-pollution floor and lunar disc
-display compression remain appearance approximations. In particular, resolved lunar
-brightness is compressed to retain its terminator at night; its contribution to sky
-illumination still uses the independent flux model. This is not a calibrated photometer.
+Star flux, disc luminance and the diffuse map now use the shared photometric pipeline.
+Separate lunar display compression and stellar display gains have been removed.
+The calibration document records remaining colour and regional-model approximations.
 Clouds, geographic terrain, historical weather and a wavelength-dependent refraction
 solver are not included. Below-sea-level observers use the sea-level atmospheric column.
 Pressure and temperature affect apparent refraction; the transport uses the selected
@@ -46,9 +45,10 @@ extinction through Earth; turn off the atmosphere for an unobstructed geometric 
 ## Exposure, controls and saved scenes
 
 Automatic exposure reads the preset's hemispherical indirect irradiance at the observer
-and both source elevations once per frame. Metering is independent of camera direction,
+and both source elevations once per frame, including natural emission, artificial
+skyglow and a numerical hemisphere integral of calibrated lunar scattering. Metering is independent of camera direction,
 field of view, previous frame and playback direction. Its gain is
-`0.12 / (0.0004 + mean_sky_luminance)`, followed by the user's exposure multiplier.
+`0.12 / (0.0004 + mean_sky_luminance + visible_direct_moon_lux/(2*pi))`, followed by the user's exposure multiplier.
 The manual setting fixes the metering gain at 300. This provides deterministic exposure;
 it does not simulate delayed physiological dark adaptation.
 

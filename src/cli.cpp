@@ -148,6 +148,8 @@ int main(int argc, char** argv) {
                                   {"ra_icrs_axes_deg", wrap(atan2(o.icrs.y, o.icrs.x)) / rad},
                                   {"dec_icrs_axes_deg", asin(o.icrs.z) / rad},
                                   {"magnitude", o.magnitude},
+                                  {"illuminance_above_atmosphere_lux", o.illuminance_lux},
+                                  {"angular_radius_deg", o.angular_radius / rad},
                                   {"distance_au", o.distance_au},
                                   {"phase", o.phase},
                                   {"quality", quality_text(o)}};

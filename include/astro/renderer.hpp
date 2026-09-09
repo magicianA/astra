@@ -63,7 +63,7 @@ class Renderer {
     uint32_t family_{};
     VkSurfaceKHR surface_{};
     VkSwapchainKHR swapchain_{};
-    VkFormat format_{}, hdr_format_ = VK_FORMAT_R16G16B16A16_SFLOAT;
+    VkFormat format_{}, hdr_format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
     VkExtent2D extent_{};
     VkRenderPass render_pass_{}, hdr_pass_{};
     VkDescriptorPool descriptors_{};
