@@ -48,8 +48,8 @@ Automatic exposure reads the preset's hemispherical indirect irradiance at the o
 and both source elevations once per frame, including natural emission, artificial
 skyglow and a numerical hemisphere integral of calibrated lunar scattering. Metering is independent of camera direction,
 field of view, previous frame and playback direction. Its gain is
-`0.12 / (0.0004 + mean_sky_luminance + visible_direct_moon_lux/(2*pi))`, followed by the user's exposure multiplier.
-The manual setting fixes the metering gain at 300. This provides deterministic exposure;
+`0.12 / (0.003 + mean_sky_luminance + visible_direct_moon_lux/(2*pi))`, followed by the user's exposure multiplier.
+The manual setting fixes the metering gain at 40. This provides deterministic exposure;
 it does not simulate delayed physiological dark adaptation.
 
 The Time panel shows geometric solar altitude and twilight phase. Previous/next dawn

@@ -90,7 +90,7 @@ class Renderer {
     std::filesystem::path shaders_;
     std::string gpu_;
     unsigned errors_ = 0;
-    float effective_exposure_ = 300;
+    float effective_exposure_ = 40;
     uint32_t memory_type(uint32_t, VkMemoryPropertyFlags) const;
     Buffer buffer(VkDeviceSize, VkBufferUsageFlags);
     void release(Buffer&);

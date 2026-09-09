@@ -90,7 +90,7 @@ double twilight_gain(double depression) {
 double exposure_gain(double sky, double moon) {
     // One display gain for every source. Include the Moon's direct illuminance
     // as well as diffuse light; the same full sky is metered at every camera angle.
-    return .12 / (.0004 + std::max(0., sky) + std::max(0., moon) / (2 * pi));
+    return .12 / (.12 / night_exposure_gain + std::max(0., sky) + std::max(0., moon) / (2 * pi));
 }
 
 double lunar_sky_luminance(double flux, double separation, double moon_t, double view_t) {

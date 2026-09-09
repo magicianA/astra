@@ -84,18 +84,27 @@ foreground integrals, validation split and hashes are in the background manifest
 ## Display and verification
 
 All light accumulates in RGBA32F. One luminance-based tone curve follows blending.
-Automatic gain is `0.12 / (0.0004 + mean_sky_luminance + visible_direct_moon_lux/(2π))`,
+Automatic gain is `0.12 / (0.003 + mean_sky_luminance + visible_direct_moon_lux/(2π))`,
 followed by the user's exposure multiplier. Metering is independent of camera
-direction, FOV and temporal history. Manual exposure fixes the base gain at 300.
+direction, FOV and temporal history. Manual exposure fixes the base gain at 40.
 The exposure slider is compensation from −24 to +4 EV; 0 EV is the default.
 Bright discs can saturate at night; reduce exposure to inspect phases. Exposure
 changes all sources together instead of selectively dimming the Moon.
 
-The final transform reduces colour at low luminance over the 0.005–5 cd/m² interval
-discussed in [CIE TN 005:2016](https://files.cie.co.at/842_CIE_TN_005-2016.pdf).
-This is an approximate display treatment, not a full spectral CIE mesopic model.
-Adaptation delays, retinal contrast thresholds, individual eyesight, telescope
-aperture and the monitor's absolute output are not simulated.
+The display transform preserves the computed RGB chromaticity. After exposure,
+it maps luminance `y` to `y² / [(y + 0.01)(1 + y)]`: a smooth shadow toe keeps the
+natural sky floor near black, while the shoulder compresses bright light. All RGB
+channels share that luminance scale. Only out-of-gamut highlights are desaturated.
+This does not subtract sky radiance or change the physical Moon/sky/star ratios.
+
+The previous per-pixel grayscale blend has been removed: a pixel's luminance alone
+is not an eye-adaptation model. The revised night exposure limit also avoids
+lifting the natural background into a grey veil. `hemisphere-moon-v3` and
+`colour-preserving-toe-v1` identify these display choices in exported scenes;
+the physical `photometric-v1` calibration remains unchanged. Default screenshots
+are colour-preserving visualizations, not a validated simulation of naked-eye
+colour perception. Adaptation delays, retinal contrast thresholds, individual
+eyesight, telescope aperture and the monitor's absolute output are not simulated.
 
 Reproduce calibration and checks:
 

@@ -15,10 +15,11 @@
     0.0
   ],
   "delta_t": 69.0,
-  "effective_exposure": 78.65080261230469,
+  "display_model": "colour-preserving-toe-v1",
+  "effective_exposure": 29.085752487182617,
   "elevation": 25.0,
   "exposure": 1.0,
-  "exposure_model": "hemisphere-moon-v2",
+  "exposure_model": "hemisphere-moon-v3",
   "extinction": 0.12,
   "fov": 59.99999999999999,
   "grid": false,

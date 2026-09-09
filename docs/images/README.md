@@ -18,7 +18,7 @@ record the camera, observer, time scales, data versions, and effective exposure.
 The first image looks southwest during late astronomical twilight, with the Sun
 13.35° below the horizon. Stars and a subdued Milky Way remain visible away from the brighter western
 horizon, all rendered together in one frame. The shared photometric calibration
-and low-luminance colour treatment are described in [Brightness calibration](../PHOTOMETRY.md).
+and colour-preserving display mapping are described in [Brightness calibration](../PHOTOMETRY.md).
 
 After building from the repository root, reproduce the images on macOS:
 

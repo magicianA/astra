@@ -748,7 +748,7 @@ void Renderer::create_pipelines() {
     };
     sky_layout_ = layout(128, VK_SHADER_STAGE_FRAGMENT_BIT, true);
     stars_layout_ = layout(128, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, true);
-    tone_layout_ = layout(8, VK_SHADER_STAGE_FRAGMENT_BIT, false);
+    tone_layout_ = layout(4, VK_SHADER_STAGE_FRAGMENT_BIT, false);
     auto pipeline = [&](const char* vert,
                         const char* frag,
                         VkPipelineLayout layout,
@@ -906,7 +906,7 @@ void Renderer::render(const RenderScene& s,
     for (auto& c : lunar) {
         c *= float(lunar_mean / std::max(1e-20, old_lunar_mean));
     }
-    float adaptation = 300;
+    float adaptation = float(photometry::night_exposure_gain);
     if (s.atmosphere && s.auto_exposure) {
         const double pollution_mean_ratio = (1.5 + .5 * exp(-pi)) / (1 + 2 * exp(-pi));
         double mean = photometry::night_floor + pollution * pollution_mean_ratio;
@@ -1075,9 +1075,7 @@ void Renderer::render(const RenderScene& s,
     vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_pipeline_);
     vkCmdBindDescriptorSets(
         f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_layout_, 0, 1, &f.tone_set, 0, nullptr);
-    const float display[] = {s.exposure, adaptation};
-    vkCmdPushConstants(
-        f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(display), display);
+    vkCmdPushConstants(f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &s.exposure);
     vkCmdDraw(f.command, 3, 1, 0, 0);
     if (ui) {
         ImGui_ImplVulkan_RenderDrawData(ui, f.command);

@@ -10,6 +10,8 @@ inline constexpr double square_arcsecond_sr = arcsec * arcsec;
 inline constexpr double luminance_zero_point = zero_magnitude_lux / square_arcsecond_sr;
 inline constexpr double night_floor = 1.5e-4;
 inline constexpr double reference_night = 2.475e-4;
+// Display gain ceiling for dark scenes, separate from calibrated scene luminance.
+inline constexpr double night_exposure_gain = 40;
 inline constexpr std::array<double, 3> solar_rgb = {144809.86689, 129443.61827, 127098.89412};
 inline constexpr double solar_lux =
     .2126 * solar_rgb[0] + .7152 * solar_rgb[1] + .0722 * solar_rgb[2];

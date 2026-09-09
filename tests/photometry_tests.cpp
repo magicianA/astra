@@ -83,8 +83,12 @@ int main() {
             require(abs(twilight_gain(boundary - 1e-7) - twilight_gain(boundary + 1e-7)) < 1e-5,
                     "continuous twilight transitions");
         }
-        require(exposure_gain(night_floor, .2) < exposure_gain(night_floor, 0) / 40,
+        require(exposure_gain(night_floor, .2) < exposure_gain(night_floor, 0) / 10,
                 "direct Moon contributes to full-sky adaptation");
+        require(exposure_gain(0, 0) <= night_exposure_gain,
+                "dark-scene exposure is bounded even without a sky background");
+        require(exposure_gain(night_floor, 0) * night_floor < .006,
+                "natural night floor stays below middle-grey display exposure");
         require(pollution_luminance(0) == 0 && pollution_luminance(1) > .01,
                 "pollution adds calibrated sky luminance");
         for (double dpi : {1., 1.5, 2., 3.}) {

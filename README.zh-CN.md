@@ -205,4 +205,4 @@ PATH="$PWD/.venv/bin:$PATH" python3 scripts/format.py --check
 [黄昏与黎明渲染研究及设计（英文）](docs/TWILIGHT_DESIGN.md)
 
 亮度校准已统一恒星、月面、暮光和银河的光度尺度，采用同一次 HDR 合成与曝光。月光会抬高天空
-背景，使暗星与银河自然失去对比度；暗处的颜色也会减弱。[校准依据、实测误差与局限](docs/PHOTOMETRY.md)。
+背景，使暗星与银河自然失去对比度。显示映射保留计算出的颜色，并限制夜空背景的提亮。[校准依据、实测误差与局限](docs/PHOTOMETRY.md)。
