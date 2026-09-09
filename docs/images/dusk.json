@@ -3,20 +3,20 @@
   "atmosphere_model": "bruneton-spectral-v1",
   "atmosphere_preset": 0,
   "auto_exposure": true,
-  "azimuth": 282.447648341463,
+  "azimuth": 235.0,
   "background_id": "nasa-gaia-dr2-diffuse-16k-v1",
   "data_id": "astra-v1-1814526cd25c6cdda2d5",
   "date": [
     2026,
     9,
     8,
-    18,
-    48,
-    13.5191650390625
+    19,
+    50,
+    0.0
   ],
   "delta_t": 69.0,
-  "effective_exposure": 0.04009486362338066,
-  "elevation": 17.0,
+  "effective_exposure": 257.1653137207031,
+  "elevation": 25.0,
   "exposure": 1.0,
   "exposure_model": "hemisphere-irradiance-v1",
   "extinction": 0.12,
@@ -33,19 +33,19 @@
   "magnitude": 7.0,
   "milky_way": true,
   "observation": {
-    "delta_t_seconds": 69.18482444742818,
+    "delta_t_seconds": 69.18486087733046,
     "extrapolated": false,
     "jd_tdb": [
       2461291.5,
-      0.4609366496337491
+      0.503835733787293
     ],
     "jd_tt": [
       2461291.5,
-      0.4609366665449825
+      0.5038357507045986
     ],
     "jd_ut1": [
       2461291.5,
-      0.46013591626202616
+      0.5030349999999999
     ],
     "model_version": "astra-astrometry-v1",
     "time_quality": "EOP prediction"

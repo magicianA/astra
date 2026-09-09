@@ -10,9 +10,9 @@
 自动曝光不随拖动、缩放改变。示例见 `examples/dawn.json`、`examples/dusk.json`；
 [实现、限制与实测结果](docs/TWILIGHT_IMPLEMENTATION.md)记录了模型细节。
 
-![北京的民用黄昏：西方地平线上的暖色暮光与蓝色天空](docs/images/dusk.png)
+![暮光中的星空：银河与成片星点，地平线上仍有橙红色余晖](docs/images/dusk.png)
 
-*北京，2026 年 9 月 8 日 18:48，当地平太阳时。*
+*北京，2026 年 9 月 8 日 19:50，当地平太阳时：银河、星点与黄昏余晖同框。*
 
 ![阿塔卡马沙漠上空的银河与恒星](docs/images/milky-way.png)
 

@@ -7,13 +7,17 @@ after export. PNG assets are stored with Git LFS.
 
 | Image | Scene | Local mean solar time | View |
 | --- | --- | --- | --- |
-| [Civil dusk](dusk.png) | [Beijing](dusk.json), 39.9042° N, 116.4074° E, 45 m | 2026-09-08 18:48:13.52 | Azimuth 282.45°, elevation 17°, vertical FOV 60° |
+| [Twilight and stars](dusk.png) | [Beijing](dusk.json), 39.9042° N, 116.4074° E, 45 m | 2026-09-08 19:50:00 | Azimuth 235°, elevation 25°, vertical FOV 60° |
 | [Milky Way](milky-way.png) | [Atacama](milky-way.json), 23.029° S, 67.755° W, 5050 m | 2026-06-15 00:00:00 | Azimuth 190°, elevation 65°, vertical FOV 60° |
 
 Both use perspective projection, the clear atmosphere preset, automatic exposure,
 and no light pollution. The Beijing scene represents clear, idealized conditions
 at those coordinates. The flat ground has no terrain model. Scene JSON files
 record the camera, observer, time scales, data versions, and effective exposure.
+
+The first image looks southwest during late astronomical twilight, with the Sun
+17.28° below the horizon. Stars and the Milky Way are visible while orange dusk
+light remains near the western horizon, all rendered together in one frame.
 
 After building from the repository root, reproduce the images on macOS:
 

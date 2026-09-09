@@ -12,9 +12,10 @@ The Time panel can jump to previous/next civil dawn or dusk; the View panel offe
 and hazy atmospheres and camera-independent automatic exposure. Try `examples/dawn.json`
 or `examples/dusk.json`. See [the model, limitations and measured checks](docs/TWILIGHT_IMPLEMENTATION.md).
 
-![Civil dusk in Astra: warm light along the western horizon beneath a blue sky](docs/images/dusk.png)
+![Stars and the Milky Way above the last orange glow of twilight in Astra](docs/images/dusk.png)
 
-*Civil dusk from Beijing, September 8, 2026, at 18:48 local mean solar time.*
+*Stars, the Milky Way, and lingering twilight from Beijing, September 8, 2026,
+at 19:50 local mean solar time.*
 
 ![The Milky Way and stars rendered above the Atacama Desert](docs/images/milky-way.png)
 
