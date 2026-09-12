@@ -242,6 +242,10 @@ constexpr auto entries = std::to_array<Translation>({
     {"上次黄昏", "Previous dusk"},
     {"下次黄昏", "Next dusk"},
     {"自动曝光", "Automatic exposure"},
+    {"自适应曝光", "Adaptive exposure"},
+    {"按当前画面测光，平滑适应明暗。启用时曝光补偿归零。",
+     "Meters the current view and smoothly adapts to light and dark. Enabling resets exposure "
+     "compensation to 0 EV."},
     {"按全天亮度测光，转动和缩放不会改变曝光。关闭后使用固定夜空曝光。",
      "Meters the whole sky, independent of rotation and zoom. Turn off for fixed night-sky "
      "exposure."},

@@ -56,7 +56,7 @@ void validate(const Scenario& s) {
         !range(s.height, -500, 100000) || !range(s.fov, 1, maximum_fov(s.projection) / rad) ||
         !range(s.elevation, -90, 90) || !range(s.azimuth, 0, 360) || !range(s.roll, -180, 180) ||
         !range(s.magnitude, -2, 16) || !range(s.pressure, 0, 1200) ||
-        !range(s.temperature, -90, 60) || !range(s.exposure, 0x1p-24, 16) ||
+        !range(s.temperature, -90, 60) || !range(s.exposure, 0x1p-40, 16) ||
         !range(s.extinction, 0, 2) || !range(s.light_pollution, 0, 1) ||
         !range(s.custom_delta_t, -86400, 1e7)) {
         throw std::invalid_argument(
@@ -93,6 +93,8 @@ void save_scenario(const Scenario& s,
         {"atmosphere_model", "bruneton-spectral-v1"},
         {"atmosphere_preset", s.atmosphere_preset},
         {"auto_exposure", s.auto_exposure},
+        {"adaptive_exposure", s.adaptive_exposure},
+        {"adaptive_exposure_model", "view-trimmed-v1"},
         {"exposure_model", "hemisphere-moon-v3"},
         {"display_model", "colour-preserving-toe-v1"},
         {"photometry_model", photometry::model_id},
@@ -216,6 +218,10 @@ Scenario load_scenario(const std::filesystem::path& p, const std::string& id) {
     }
     LOAD(atmosphere_preset);
     LOAD(auto_exposure);
+    LOAD(adaptive_exposure);
+    if (j.contains("adaptive_exposure_model") || s.adaptive_exposure) {
+        model("adaptive_exposure_model", "view-trimmed-v1", {});
+    }
     LOAD(ground);
     LOAD(grid);
     LOAD(labels);

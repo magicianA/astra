@@ -121,6 +121,7 @@ void scenes(const std::filesystem::path& directory) {
     auto original = nlohmann::json::parse(std::ifstream(path));
     for (const auto* key : {"photometry_model",
                             "exposure_model",
+                            "adaptive_exposure_model",
                             "display_model",
                             "surface_model",
                             "eclipse_model"}) {

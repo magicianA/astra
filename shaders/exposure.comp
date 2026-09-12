@@ -1,0 +1,35 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0) uniform sampler2D sky;
+
+layout(set = 0, binding = 1, std430) writeonly buffer Meter {
+    float samples[];
+};
+
+// clang-format off
+layout(push_constant) uniform Settings {
+    int origin;
+    int width;
+    int view;
+} p;
+// clang-format on
+
+void main() {
+    ivec2 cell = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = ivec2(p.width, textureSize(sky, 0).y);
+    float luminance = 0.;
+    // Fixed stratified samples avoid temporal noise. Four taps per cell make
+    // the meter less sensitive to star-sized highlights and moving disc edges.
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            vec2 uv = (vec2(cell) + (vec2(x, y) + .5) * .5) / 64.;
+            ivec2 pixel = clamp(ivec2(uv * vec2(size)), ivec2(0), size - 1);
+            pixel.x += p.origin;
+            vec3 value = max(texelFetch(sky, pixel, 0).rgb, vec3(0.));
+            luminance += dot(value, vec3(.2126, .7152, .0722));
+        }
+    }
+    // Adaptive mode renders HDR with the fixed night gain (40). Undo it here;
+    // user compensation and the display transform must not feed back into AE.
+    samples[p.view * 4096 + cell.y * 64 + cell.x] = luminance / 160.;
+}

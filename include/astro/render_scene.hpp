@@ -15,6 +15,7 @@ struct RenderScene {
     float solar_flux = 1, lunar_flux = 0, height_km = 0;
     int atmosphere_preset = 0;
     bool auto_exposure = true;
+    bool adaptive_exposure = false;
     bool atmosphere = true, ground = true;
     bool milky_way = false;
     float extinction = .2;

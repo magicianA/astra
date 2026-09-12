@@ -404,14 +404,22 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
     float exposure = float(log2(scene.exposure));
     ImGui::SetNextItemWidth(-1);
     if (ImGui::SliderFloat(
-            "##exposure", &exposure, -24, 4, "%+.1f EV", ImGuiSliderFlags_AlwaysClamp)) {
+            "##exposure", &exposure, -40, 4, "%+.1f EV", ImGuiSliderFlags_AlwaysClamp)) {
         scene.exposure = exp2(exposure);
     }
+    if (ImGui::Checkbox(tr("自适应曝光"), &scene.adaptive_exposure) && scene.adaptive_exposure) {
+        scene.exposure = 1;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", tr("按当前画面测光，平滑适应明暗。启用时曝光补偿归零。"));
+    }
+    ImGui::BeginDisabled(scene.adaptive_exposure);
     ImGui::Checkbox(tr("自动曝光"), &scene.auto_exposure);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s",
                           tr("按全天亮度测光，转动和缩放不会改变曝光。关闭后使用固定夜空曝光。"));
     }
+    ImGui::EndDisabled();
     if (ImGui::CollapsingHeader(tr("大气与时间模型###models"))) {
         ImGui::TextDisabled("%s", tr("大气预设"));
         const char* presets[] = {tr("清澈"), tr("薄霾")};

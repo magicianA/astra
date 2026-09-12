@@ -51,6 +51,8 @@ int main(int argc, char** argv) {
                 ensure_sequence().fps = std::stoi(value());
             } else if (arg == "--no-video") {
                 ensure_sequence().video = false;
+            } else if (arg == "--unlocked-exposure") {
+                ensure_sequence().lock_exposure = false;
             } else if (arg == "--trails") {
                 ensure_sequence().trails = true;
             } else if (arg == "--camera-end") {
@@ -104,7 +106,7 @@ int main(int argc, char** argv) {
                              "YEAR --validation --frames N --play-speed RATE --screenshot FILE.png "
                              "--hide-ui --smoke --language en|zh-CN\n"
                              "Sequence: --sequence EMPTY_DIR --steps N --step SECONDS --fps N "
-                             "--no-video --trails --camera-end SCENE.json\n";
+                             "--no-video --trails --camera-end SCENE.json --unlocked-exposure\n";
                 return 0;
             } else {
                 throw std::invalid_argument("Unknown argument: " + arg);

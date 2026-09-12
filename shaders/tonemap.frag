@@ -6,6 +6,8 @@ layout(set = 0, binding = 0) uniform sampler2D sky;
 // clang-format off
 layout(push_constant) uniform Settings {
     float exposure;
+    float comparisonExposure;
+    float split;
 } p;
 // clang-format on
 
@@ -14,8 +16,9 @@ void main() {
     float luminance = dot(hdr, vec3(.2126, .7152, .0722));
     // Preserve the computed chromaticity. Pixel luminance alone is not an eye
     // adaptation model and must not turn a twilight sky into monochrome.
-    hdr *= p.exposure;
-    float y = luminance * p.exposure;
+    float exposure = gl_FragCoord.x < p.split ? p.exposure : p.comparisonExposure;
+    hdr *= exposure;
+    float y = luminance * exposure;
     // A smooth display toe keeps the natural sky floor near black. It applies
     // after all sources are composed, without subtracting physical sky radiance.
     float toe = y / (y + .01);

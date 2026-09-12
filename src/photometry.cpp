@@ -93,6 +93,59 @@ double exposure_gain(double sky, double moon) {
     return .12 / (.12 / night_exposure_gain + std::max(0., sky) + std::max(0., moon) / (2 * pi));
 }
 
+double view_exposure_gain(std::span<float> samples) {
+    if (samples.empty()) {
+        return night_exposure_gain;
+    }
+    auto end = std::remove_if(samples.begin(), samples.end(), [](float value) {
+        return !std::isfinite(value) || value < 0;
+    });
+    const auto count = size_t(end - samples.begin());
+    if (!count) {
+        return night_exposure_gain;
+    }
+    std::sort(samples.begin(), end);
+    // Trim the brightest 2% so individual stars do not drive exposure. Retain
+    // broad highlights (e.g. a resolved Moon) through the 90th–98th percentile
+    // mean. Arithmetic luminance avoids overexposing a disc against black space.
+    const size_t high = std::max(size_t(1), count * 98 / 100);
+    const size_t tail = std::min(high - 1, count * 90 / 100);
+    double sum = 0, bright = 0;
+    for (size_t i = 0; i < high; ++i) {
+        sum += samples[i];
+        if (i >= tail) {
+            bright += samples[i];
+        }
+    }
+    const double metered = std::max(sum / high, .2 * bright / (high - tail));
+    return std::clamp(
+        .12 / (.12 / night_exposure_gain + metered), minimum_exposure_gain, night_exposure_gain);
+}
+
+double adapt_exposure(double current, double target, double elapsed) {
+    const double minimum = minimum_exposure_gain;
+    if (!std::isfinite(target) || target <= 0) {
+        return current;
+    }
+    target = std::clamp(target, minimum, night_exposure_gain);
+    if (!std::isfinite(current) || current <= 0) {
+        return target;
+    }
+    if (!std::isfinite(elapsed) || elapsed <= 0) {
+        return current;
+    }
+    // Integrate a rate-limited exponential analytically in EV. The transition
+    // is frame-rate independent; pausing/minimizing cannot create a large jump.
+    const double dt = std::min(elapsed, .1);
+    const double delta = log2(target / current), distance = abs(delta);
+    const double tau = delta < 0 ? .45 : 1.2, rate = delta < 0 ? 12. : 4.;
+    const double linear = std::max(0., (distance - rate * tau) / rate);
+    const double remaining = dt <= linear
+                                 ? distance - rate * dt
+                                 : std::min(distance, rate * tau) * exp(-(dt - linear) / tau);
+    return current * exp2(std::copysign(distance - remaining, delta));
+}
+
 double lunar_sky_luminance(double flux, double separation, double moon_t, double view_t) {
     // Krisciunas & Schaefer angular scattering law, as used by ING TN 127.
     // I* is illuminance in footcandles, B is in nanoLamberts. Extinction comes

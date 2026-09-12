@@ -272,6 +272,7 @@ void draw_exploration(UiState& ui, const UiFrame& frame, UiActions& actions) {
             actions.recompute |= ImGui::Checkbox(tr("地球照"), &frame.scene.earthshine);
             if (ImGui::Button(tr("月面细节曝光"), {-1, 30})) {
                 frame.scene.auto_exposure = false;
+                frame.scene.adaptive_exposure = false;
                 frame.scene.exposure = exp2(-18.);
                 jump(ui, frame, actions, frame.scene, 0, {301, {}});
                 frame.scene.fov = 1.2;

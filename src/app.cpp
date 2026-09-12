@@ -465,6 +465,7 @@ int run_app(const AppOptions& options) {
                 s.fov = 60;
                 s.exposure = 1;
                 s.auto_exposure = true;
+                s.adaptive_exposure = false;
                 s.compare = false;
                 s.date.year = s.comparison_year;
                 if (s.scale == TimeScale::UTC && (s.date.year < 1973 || s.date.year >= 2027)) {
@@ -478,6 +479,7 @@ int run_app(const AppOptions& options) {
             std::unique_ptr<Recording> recording;
             bool start_cli_recording = options.sequence.has_value();
             int frame = 0;
+            int metered_scene_frames = 0;
             auto last = std::chrono::steady_clock::now();
             auto first = last;
             std::vector<double> steady_frame_ms;
@@ -791,6 +793,7 @@ int run_app(const AppOptions& options) {
                             rendered_comparison = comparison_sky;
                         }
                         comparison_render.auto_exposure = scene.auto_exposure;
+                        comparison_render.adaptive_exposure = scene.adaptive_exposure;
                         comparison_render.atmosphere_preset = scene.atmosphere_preset;
                         comparison_render.milky_way = scene.milky_way;
                     }
@@ -943,7 +946,9 @@ int run_app(const AppOptions& options) {
                     ImGui::End();
                 }
                 if ((start_cli_recording || ui.exploration->begin_recording) && sky && engine &&
-                    !busy) {
+                    !busy &&
+                    (!scene.adaptive_exposure ||
+                     (renderer.exposure_ready() && metered_scene_frames >= 3))) {
                     start_cli_recording = false;
                     ui.exploration->begin_recording = false;
                     try {
@@ -958,8 +963,9 @@ int run_app(const AppOptions& options) {
                         auto initial = scene;
                         if (sequence.lock_exposure) {
                             initial.auto_exposure = false;
+                            initial.adaptive_exposure = false;
                             initial.exposure =
-                                std::clamp(renderer.effective_exposure() / 40., exp2(-24.), 16.);
+                                std::clamp(renderer.effective_exposure() / 40., exp2(-40.), 16.);
                         }
                         recording = std::make_unique<Recording>(sequence, initial);
                         ui.exploration->recording = true;
@@ -1007,6 +1013,9 @@ int run_app(const AppOptions& options) {
                     prior.azimuth != camera.azimuth || prior.elevation != camera.elevation ||
                     prior.roll != camera.roll || prior.fov != camera.fov ||
                     prior.projection != camera.projection;
+                const bool sky_changed = sky != rendered_snapshot;
+                metered_scene_frames =
+                    camera_changed || sky_changed ? 0 : std::min(3, metered_scene_frames + 1);
                 if (sky && stars &&
                     (sky != rendered_snapshot || stars != rendered_stars || camera_changed)) {
                     render = render_scene(*sky, *stars, scene, camera, &engine->catalog);
@@ -1016,19 +1025,23 @@ int run_app(const AppOptions& options) {
                 render.camera = camera;
                 render.exposure = float(scene.exposure);
                 render.auto_exposure = scene.auto_exposure;
+                render.adaptive_exposure = scene.adaptive_exposure && bool(sky);
                 render.atmosphere_preset = scene.atmosphere_preset;
                 render.milky_way = scene.milky_way && bool(sky);
                 bool capture = !pending_shot.empty() && !shot_done && sky &&
                                sky == latest_snapshot && !playing && !busy && !request &&
                                (!scene.compare || (comparison_sky && !comparison_job.valid() &&
                                                    comparison_error.empty())) &&
+                               (!scene.adaptive_exposure ||
+                                (renderer.exposure_ready() && metered_scene_frames >= 3)) &&
                                frame > 10 && (!options.smoke || frame > 240);
                 try {
                     const bool presented = renderer.render(
                         render,
                         (options.hide_ui || recording) ? nullptr : ImGui::GetDrawData(),
                         capture ? pending_shot : std::filesystem::path{},
-                        scene.compare ? &comparison_render : nullptr);
+                        scene.compare ? &comparison_render : nullptr,
+                        recording ? (capture ? 1. / recording->request.fps : 0.) : -1.);
                     if (capture && presented) {
                         auto saved = sky->scenario;
                         saved.azimuth = scene.azimuth;
@@ -1038,6 +1051,7 @@ int run_app(const AppOptions& options) {
                         saved.projection = scene.projection;
                         saved.exposure = scene.exposure;
                         saved.auto_exposure = scene.auto_exposure;
+                        saved.adaptive_exposure = scene.adaptive_exposure;
                         saved.atmosphere_preset = scene.atmosphere_preset;
                         saved.milky_way = scene.milky_way;
                         saved.compare = scene.compare;

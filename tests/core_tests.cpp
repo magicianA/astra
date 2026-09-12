@@ -159,9 +159,10 @@ int main(int argc, char** argv) {
             scene.milky_way = false;
             scene.atmosphere_preset = 1;
             scene.auto_exposure = false;
+            scene.adaptive_exposure = true;
             save_scenario(scene, path);
             require(load_scenario(path).atmosphere_preset == 1 &&
-                        !load_scenario(path).auto_exposure,
+                        !load_scenario(path).auto_exposure && load_scenario(path).adaptive_exposure,
                     "preserve atmosphere and exposure settings");
             require(!load_scenario(path).milky_way,
                     "preserve the Milky Way toggle in saved scenes");
@@ -181,8 +182,11 @@ int main(int argc, char** argv) {
             json.erase("atmosphere_model");
             json.erase("atmosphere_preset");
             json.erase("auto_exposure");
+            json.erase("adaptive_exposure");
+            json.erase("adaptive_exposure_model");
             std::ofstream(path) << json;
-            require(load_scenario(path).atmosphere_preset == 0 && load_scenario(path).auto_exposure,
+            require(load_scenario(path).atmosphere_preset == 0 &&
+                        load_scenario(path).auto_exposure && !load_scenario(path).adaptive_exposure,
                     "legacy atmosphere scenes migrate to clear sky with automatic exposure");
             json["atmosphere_preset"] = 2;
             std::ofstream(path) << json;

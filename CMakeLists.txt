@@ -163,7 +163,16 @@ if(ASTRA_BUILD_APP)
         endforeach()
     endif()
     find_program(GLSLANG_VALIDATOR glslangValidator REQUIRED)
-    foreach(shader sky.vert sky.frag stars.vert stars.frag tonemap.frag atmosphere.comp)
+    foreach(
+        shader
+        sky.vert
+        sky.frag
+        stars.vert
+        stars.frag
+        tonemap.frag
+        atmosphere.comp
+        exposure.comp
+    )
         add_custom_command(
             OUTPUT "${CMAKE_BINARY_DIR}/shaders/${shader}.spv"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/shaders"

@@ -160,7 +160,8 @@ build/astra.app/Contents/MacOS/astra --scenario examples/milky-way.json \
   --sequence ./new-empty-sequence --steps 120 --step 10 --fps 30 --trails
 ```
 
-The CLI requires an empty directory. Use `--no-video` for PNG-only output or
+The CLI requires an empty directory. Use `--unlocked-exposure` to let adaptive
+exposure change during the sequence, `--no-video` for PNG-only output or
 `--camera-end end-scene.json` for a camera path. `sequence.json` records requested and
 completed frame counts, frame rate and time step; `start.json` and `camera-end.json`
 preserve the settings. UTC stepping includes leap seconds. Export is bounded by the

@@ -22,6 +22,7 @@ struct Scenario {
     Horizon horizon;
     int atmosphere_preset = 0;
     bool auto_exposure = true;
+    bool adaptive_exposure = false;
     double pressure = 1013.25, temperature = 15, extinction = .2, exposure = 1,
            light_pollution = .08;
     std::string location_name = "北京 Beijing";

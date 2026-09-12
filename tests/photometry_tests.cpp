@@ -1,7 +1,9 @@
 #include "astro/camera.hpp"
 #include "astro/photometry.hpp"
 #include <iostream>
+#include <limits>
 #include <stdexcept>
+#include <vector>
 
 using namespace astro;
 using namespace astro::photometry;
@@ -89,6 +91,60 @@ int main() {
                 "dark-scene exposure is bounded even without a sky background");
         require(exposure_gain(night_floor, 0) * night_floor < .006,
                 "natural night floor stays below middle-grey display exposure");
+        std::vector<float> samples(4096, float(night_floor));
+        const double dark_gain = view_exposure_gain(samples);
+        require(dark_gain * night_floor < .006 && dark_gain <= night_exposure_gain,
+                "adaptive exposure retains a dark natural night sky");
+        std::fill_n(samples.begin(), 40, 1e9f);
+        require(abs(view_exposure_gain(samples) / dark_gain - 1) < 1e-6,
+                "isolated bright stars do not change view exposure");
+        std::fill(samples.begin(), samples.end(), 0);
+        std::fill_n(samples.begin(), 450, 3000.f);
+        const double lunar_gain = view_exposure_gain(samples);
+        require(lunar_gain * 3000 > .3 && lunar_gain * 3000 < .7,
+                "resolved Moon retains detail against an otherwise black view");
+        std::fill(samples.begin(), samples.end(), 1000);
+        require(abs(view_exposure_gain(samples) * 1000 - .12) < 1e-5,
+                "uniform daylight is metered to the exposure key");
+        const double day_gain = view_exposure_gain(samples);
+        std::fill(samples.begin(), samples.end(), 2000);
+        require(abs(day_gain / view_exposure_gain(samples) - 2) < 1e-5,
+                "doubling scene luminance reduces exposure by one stop");
+        std::fill(samples.begin(), samples.end(), 0);
+        std::fill_n(samples.begin(), 450, 1.5e9f);
+        require(view_exposure_gain(samples) * 1.5e9 < .7,
+                "meter range includes resolved solar surface luminance");
+        samples = {
+            -1, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()};
+        require(view_exposure_gain(samples) == night_exposure_gain &&
+                    view_exposure_gain({}) == night_exposure_gain,
+                "invalid or absent meter samples cannot poison exposure history");
+        for (const auto endpoints :
+             {std::array{dark_gain, lunar_gain}, std::array{lunar_gain, dark_gain}}) {
+            double reference = 0;
+            for (int fps : {30, 60, 144}) {
+                double value = endpoints[0];
+                for (int frame = 0; frame < 3 * fps; ++frame) {
+                    const double next = adapt_exposure(value, endpoints[1], 1. / fps);
+                    require(next >= std::min(value, endpoints[1]) &&
+                                next <= std::max(value, endpoints[1]),
+                            "adaptation is monotonic without overshooting its target");
+                    require(abs(log2(next / value)) <= 12. / fps + 1e-10,
+                            "exposure changes are bounded in EV per second");
+                    value = next;
+                }
+                if (reference) {
+                    require(abs(log2(value / reference)) < 1e-9,
+                            "adaptation is independent of display frame rate");
+                }
+                reference = value;
+            }
+        }
+        require(adapt_exposure(dark_gain, lunar_gain, 0) == dark_gain &&
+                    abs(log2(adapt_exposure(dark_gain, lunar_gain, 60) / dark_gain)) <= 1.2 + 1e-9,
+                "paused exports freeze adaptation and resuming after stalls is bounded");
+        require(adapt_exposure(0, lunar_gain, .01) == lunar_gain,
+                "first metering result initializes a valid exposure");
         require(pollution_luminance(0) == 0 && pollution_luminance(1) > .01,
                 "pollution adds calibrated sky luminance");
         for (double dpi : {1., 1.5, 2., 3.}) {

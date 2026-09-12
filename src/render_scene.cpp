@@ -28,6 +28,7 @@ RenderScene render_scene(const SkySnapshot& sky,
     result.exposure = float(view.exposure);
     result.atmosphere_preset = view.atmosphere_preset;
     result.auto_exposure = view.auto_exposure;
+    result.adaptive_exposure = view.adaptive_exposure;
     result.height_km = float(s.height / 1000.);
     result.moon_phase = float(sky.moon_phase);
     for (auto& o : sky.bodies) {

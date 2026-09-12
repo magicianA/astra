@@ -14,6 +14,12 @@ or `examples/dusk.json`. Brightness now uses a shared photometric scale for star
 the Moon, twilight and the Milky Way. See [calibration and limits](docs/PHOTOMETRY.md)
 and [atmospheric transport](docs/TWILIGHT_IMPLEMENTATION.md).
 
+Enable **Adaptive exposure** in **View → Exposure** to meter the current image as
+you pan or zoom. It adjusts smoothly, preserves a dark night sky, and can expose
+resolved lunar detail. Enabling it resets compensation to 0 EV; the slider remains
+available for adjustment. This optional mode overrides whole-sky automatic exposure
+and is saved with the scene. Try `examples/adaptive-moon.json`.
+
 ![Stars and the Milky Way above the faint glow of twilight in Astra](docs/images/dusk.png)
 
 *Stars, the Milky Way, and lingering twilight from Beijing, September 8, 2026,

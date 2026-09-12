@@ -3,6 +3,7 @@
 #include "camera.hpp"
 #include "render_scene.hpp"
 #include <SDL3/SDL.h>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -31,7 +32,9 @@ class Renderer {
         VkCommandBuffer command{};
         VkFence fence{};
         VkSemaphore acquired{};
-        Buffer instances, atmosphere[2], features[2];
+        Buffer instances, atmosphere[2], features[2], meter;
+        VkDescriptorSet meter_set{};
+        bool metered[2]{};
         VkDescriptorSet atmosphere_set[2]{}, feature_set[2]{};
         VkImage hdr{};
         VkDeviceMemory hdr_memory{};
@@ -56,6 +59,7 @@ class Renderer {
     VkDescriptorSetLayout tone_set_layout_{};
     VkDescriptorSetLayout atmosphere_set_layout_{};
     VkDescriptorSetLayout feature_set_layout_{};
+    VkDescriptorSetLayout meter_set_layout_{};
     Texture moon_albedo_, moon_height_;
     VkBool32 manual_atmosphere_filtering_ = VK_FALSE;
     std::unique_ptr<AtmosphereLut> atmospheres_[2];
@@ -66,8 +70,8 @@ class Renderer {
     VkSampler background_sampler_{};
     float background_anisotropy_ = 1;
     VkDescriptorSet background_set_{};
-    VkPipelineLayout sky_layout_{}, stars_layout_{}, tone_layout_{};
-    VkPipeline sky_pipeline_{}, stars_pipeline_{}, tone_pipeline_{};
+    VkPipelineLayout sky_layout_{}, stars_layout_{}, tone_layout_{}, meter_layout_{};
+    VkPipeline sky_pipeline_{}, stars_pipeline_{}, tone_pipeline_{}, meter_pipeline_{};
     std::vector<VkImage> images_;
     std::vector<VkImageView> views_;
     std::vector<VkFramebuffer> framebuffers_;
@@ -79,6 +83,12 @@ class Renderer {
     std::string gpu_;
     unsigned errors_ = 0;
     float effective_exposure_ = 40;
+    double adaptive_gain_[2]{40, 40};
+    double displayed_gain_[2]{40, 40};
+    bool exposure_started_ = false;
+    bool adaptation_ready_[2]{}, adaptive_enabled_[2]{};
+    int exposure_views_ = 1;
+    std::chrono::steady_clock::time_point exposure_time_{};
     uint32_t memory_type(uint32_t, VkMemoryPropertyFlags) const;
     Buffer buffer(VkDeviceSize, VkBufferUsageFlags);
     void release(Buffer&);
@@ -101,7 +111,8 @@ public:
     bool render(const RenderScene&,
                 ImDrawData*,
                 const std::filesystem::path& screenshot = {},
-                const RenderScene* comparison = nullptr);
+                const RenderScene* comparison = nullptr,
+                double exposure_step = -1);
 
     void request_resize() {
         rebuild_ = true;
@@ -117,6 +128,10 @@ public:
 
     float effective_exposure() const {
         return effective_exposure_;
+    }
+
+    bool exposure_ready() const {
+        return adaptation_ready_[0] && (exposure_views_ == 1 || adaptation_ready_[1]);
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL

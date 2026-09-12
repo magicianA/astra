@@ -1,6 +1,7 @@
 #pragma once
 #include "math.hpp"
 #include <array>
+#include <span>
 
 namespace astro::photometry {
 // Photopic/V-band approximation. Irradiance is illuminance in lux; diffuse
@@ -12,6 +13,7 @@ inline constexpr double night_floor = 1.5e-4;
 inline constexpr double reference_night = 2.475e-4;
 // Display gain ceiling for dark scenes, separate from calibrated scene luminance.
 inline constexpr double night_exposure_gain = 40;
+inline constexpr double minimum_exposure_gain = night_exposure_gain * 0x1p-40;
 inline constexpr std::array<double, 3> solar_rgb = {144809.86689, 129443.61827, 127098.89412};
 inline constexpr double solar_lux =
     .2126 * solar_rgb[0] + .7152 * solar_rgb[1] + .0722 * solar_rgb[2];
@@ -32,6 +34,9 @@ double twilight_reference(double solar_depression_degrees);
 double twilight_gain(double solar_depression_degrees);
 double pollution_luminance(double level);
 double exposure_gain(double mean_sky_luminance, double direct_moon_illuminance);
+// Samples are scene luminance before display gain. Sorting is in-place.
+double view_exposure_gain(std::span<float> samples);
+double adapt_exposure(double current, double target, double elapsed_seconds);
 double lunar_sky_luminance(double illuminance_lux,
                            double separation,
                            double moon_transmission,

@@ -33,7 +33,8 @@ Lunar magnitude includes phase, observer distance and distance from the Sun. A
 reference full Moon at magnitude −12.73 supplies **0.314 lux above the atmosphere**.
 The Sun uses the atmosphere's integrated spectrum, about 132,000 lux at 1 AU.
 Neither disc has a separate display gain. Planetary phase laws remain approximate;
-lunar terrain, opposition surge, eclipses and Earthshine are not modeled.
+lunar terrain, libration, eclipses and Earthshine use the approximations documented
+in [the exploration notes](EXPLORATION.md). Opposition surge is not modeled.
 
 ## Twilight, moonlight and natural darkness
 
@@ -87,9 +88,34 @@ All light accumulates in RGBA32F. One luminance-based tone curve follows blendin
 Automatic gain is `0.12 / (0.003 + mean_sky_luminance + visible_direct_moon_lux/(2π))`,
 followed by the user's exposure multiplier. Metering is independent of camera
 direction, FOV and temporal history. Manual exposure fixes the base gain at 40.
-The exposure slider is compensation from −24 to +4 EV; 0 EV is the default.
+The exposure slider is compensation from −40 to +4 EV; 0 EV is the default.
 Bright discs can saturate at night; reduce exposure to inspect phases. Exposure
 changes all sources together instead of selectively dimming the Moon.
+
+The optional **Adaptive exposure** mode (`adaptive_exposure: true`,
+`adaptive_exposure_model: view-trimmed-v1`) overrides the whole-sky/manual base gain.
+It meters the actual HDR view before compensation, tone mapping and UI. A Vulkan
+compute pass takes four fixed samples per cell on a 64×64 grid, with independent
+meters for the two comparison views. The brightest 2% of samples are discarded to
+reject isolated stars. The meter uses the greater of the remaining arithmetic mean
+and 0.2 times the mean from the 90th–98th percentile, protecting broad lunar highlights.
+Gain is `0.12 / (0.003 + metered_luminance)`, bounded between `40 × 2^-40` and 40.
+That ceiling retains the dark-sky floor rather than raising every view to middle grey.
+
+Two frame buffers provide asynchronous meter readback; the first valid reading
+initializes exposure. Later changes follow a rate-limited exponential in EV:
+bright adaptation uses 0.45 s / 12 EV per second, dark adaptation 1.2 s / 4 EV per
+second. The integration is independent of frame rate, with elapsed time capped at
+0.1 s after a stall. Sampling is deterministic and UI text cannot affect it.
+The UI resets compensation to 0 EV when enabling this mode; saved compensation is
+preserved on load. Old scenes default to adaptive exposure off.
+
+Screenshots record the effective display gain. Sequence exports with exposure
+locked retain the starting primary gain as a fixed manual exposure; unlocked
+exports advance adaptation once per output frame using the requested frame rate,
+after allowing the asynchronous meter to catch up. Rendering or encoding delays
+do not become adaptation time. This is a display convenience, not a physiological
+model of eye adaptation, and small bright discs can still saturate in a wide view.
 
 The display transform preserves the computed RGB chromaticity. After exposure,
 it maps luminance `y` to `y² / [(y + 0.01)(1 + y)]`: a smooth shadow toe keeps the
@@ -103,7 +129,7 @@ lifting the natural background into a grey veil. `hemisphere-moon-v3` and
 `colour-preserving-toe-v1` identify these display choices in exported scenes;
 the physical `photometric-v1` calibration remains unchanged. Default screenshots
 are colour-preserving visualizations, not a validated simulation of naked-eye
-colour perception. Adaptation delays, retinal contrast thresholds, individual
+colour perception. Physiological adaptation delays, retinal contrast thresholds, individual
 eyesight, telescope aperture and the monitor's absolute output are not simulated.
 
 Reproduce calibration and checks:

@@ -162,7 +162,8 @@ Renderer::Renderer(SDL_Window* w,
             for (uint32_t i = 0; i < qc; i++) {
                 VkBool32 present;
                 check(vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface_, &present));
-                if (present && (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                constexpr auto required_queue = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+                if (present && (families[i].queueFlags & required_queue) == required_queue) {
                     physical_ = device;
                     family_ = i;
                     gpu_ = props.deviceName;
@@ -174,7 +175,7 @@ Renderer::Renderer(SDL_Window* w,
             }
         }
         if (!physical_) {
-            throw std::runtime_error("A Vulkan 1.2 graphics/present device is required");
+            throw std::runtime_error("A Vulkan 1.2 graphics/compute/present device is required");
         }
         check(vkEnumerateDeviceExtensionProperties(physical_, nullptr, &count, nullptr));
         available.resize(count);
@@ -205,11 +206,12 @@ Renderer::Renderer(SDL_Window* w,
         check(vkCreateDevice(physical_, &di, nullptr, &device_));
         vkGetDeviceQueue(device_, family_, 0, &queue_);
         VkDescriptorPoolSize pools[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64},
-                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8}};
+                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8},
+                                        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2}};
         VkDescriptorPoolCreateInfo dp{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         dp.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         dp.maxSets = 32;
-        dp.poolSizeCount = 2;
+        dp.poolSizeCount = 3;
         dp.pPoolSizes = pools;
         check(vkCreateDescriptorPool(device_, &dp, nullptr, &descriptors_));
         VkDescriptorSetLayoutBinding bind{
@@ -218,6 +220,12 @@ Renderer::Renderer(SDL_Window* w,
         dl.bindingCount = 1;
         dl.pBindings = &bind;
         check(vkCreateDescriptorSetLayout(device_, &dl, nullptr, &tone_set_layout_));
+        VkDescriptorSetLayoutBinding meter_bindings[] = {
+            {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
+        dl.bindingCount = 2;
+        dl.pBindings = meter_bindings;
+        check(vkCreateDescriptorSetLayout(device_, &dl, nullptr, &meter_set_layout_));
         std::array<VkDescriptorSetLayoutBinding, 9> atmosphere_bindings{};
         for (uint32_t i = 0; i < atmosphere_bindings.size(); ++i) {
             atmosphere_bindings[i] = {i,
@@ -259,6 +267,7 @@ Renderer::Renderer(SDL_Window* w,
                 i);
         }
         for (auto& f : frames_) {
+            f.meter = buffer(2 * 4096 * sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
             for (int v = 0; v < 2; ++v) {
                 f.atmosphere[v] = buffer(80, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
                 VkDescriptorSetAllocateInfo allocate{
@@ -639,8 +648,9 @@ void Renderer::create_swapchain() {
         VkSubpassDependency deps[2]{};
         deps[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         deps[0].dstSubpass = 0;
-        deps[0].srcStageMask = hdr ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-                                   : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        deps[0].srcStageMask =
+            hdr ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
+                : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         deps[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         deps[0].srcAccessMask = hdr ? VK_ACCESS_SHADER_READ_BIT : 0;
         deps[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -648,7 +658,8 @@ void Renderer::create_swapchain() {
         deps[1].dstSubpass = VK_SUBPASS_EXTERNAL;
         deps[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         deps[1].dstStageMask =
-            hdr ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            hdr ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
+                : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
         deps[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         deps[1].dstAccessMask = hdr ? VK_ACCESS_SHADER_READ_BIT : 0;
         VkRenderPassCreateInfo p{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
@@ -733,12 +744,30 @@ void Renderer::create_swapchain() {
         wr.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         wr.pImageInfo = &ii;
         vkUpdateDescriptorSets(device_, 1, &wr, 0, nullptr);
+        da.pSetLayouts = &meter_set_layout_;
+        check(vkAllocateDescriptorSets(device_, &da, &f.meter_set));
+        VkDescriptorBufferInfo meter_buffer{f.meter.handle, 0, f.meter.size};
+        VkWriteDescriptorSet meter_writes[2]{};
+        meter_writes[0] = wr;
+        meter_writes[0].dstSet = f.meter_set;
+        meter_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        meter_writes[1].dstSet = f.meter_set;
+        meter_writes[1].dstBinding = 1;
+        meter_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        meter_writes[1].descriptorCount = 1;
+        meter_writes[1].pBufferInfo = &meter_buffer;
+        vkUpdateDescriptorSets(device_, 2, meter_writes, 0, nullptr);
     }
     rebuild_ = false;
 }
 
 void Renderer::destroy_swapchain() {
     for (auto& f : frames_) {
+        if (f.meter_set) {
+            vkFreeDescriptorSets(device_, descriptors_, 1, &f.meter_set);
+        }
+        f.meter_set = {};
+        f.metered[0] = f.metered[1] = false;
         if (f.tone_set) {
             vkFreeDescriptorSets(device_, descriptors_, 1, &f.tone_set);
         }
@@ -816,7 +845,28 @@ void Renderer::create_pipelines() {
     };
     sky_layout_ = layout(128, VK_SHADER_STAGE_FRAGMENT_BIT, true);
     stars_layout_ = layout(128, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, true);
-    tone_layout_ = layout(4, VK_SHADER_STAGE_FRAGMENT_BIT, false);
+    tone_layout_ = layout(12, VK_SHADER_STAGE_FRAGMENT_BIT, false);
+    VkPushConstantRange meter_push{VK_SHADER_STAGE_COMPUTE_BIT, 0, 12};
+    VkPipelineLayoutCreateInfo meter_layout{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    meter_layout.setLayoutCount = 1;
+    meter_layout.pSetLayouts = &meter_set_layout_;
+    meter_layout.pushConstantRangeCount = 1;
+    meter_layout.pPushConstantRanges = &meter_push;
+    check(vkCreatePipelineLayout(device_, &meter_layout, nullptr, &meter_layout_));
+    auto meter_shader = shader("exposure.comp");
+    VkComputePipelineCreateInfo meter_pipeline{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+    meter_pipeline.layout = meter_layout_;
+    meter_pipeline.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                            nullptr,
+                            0,
+                            VK_SHADER_STAGE_COMPUTE_BIT,
+                            meter_shader,
+                            "main",
+                            nullptr};
+    const auto meter_status =
+        vkCreateComputePipelines(device_, {}, 1, &meter_pipeline, nullptr, &meter_pipeline_);
+    vkDestroyShaderModule(device_, meter_shader, nullptr);
+    check(meter_status);
     auto pipeline = [&](const char* vert,
                         const char* frag,
                         VkPipelineLayout layout,
@@ -915,7 +965,8 @@ void Renderer::create_pipelines() {
 bool Renderer::render(const RenderScene& primary,
                       ImDrawData* ui,
                       const std::filesystem::path& screenshot,
-                      const RenderScene* comparison) {
+                      const RenderScene* comparison,
+                      double exposure_step) {
     int width, height;
     SDL_GetWindowSizeInPixels(window_, &width, &height);
     if (width <= 0 || height <= 0) {
@@ -932,8 +983,50 @@ bool Renderer::render(const RenderScene& primary,
     auto& f = frames_[frame_];
     check(vkWaitForFences(device_, 1, &f.fence, VK_TRUE, UINT64_MAX));
     const int view_count = comparison ? 2 : 1;
+    const auto exposure_now = std::chrono::steady_clock::now();
+    const double exposure_dt =
+        exposure_step >= 0 ? exposure_step
+                           : std::chrono::duration<double>(exposure_now - exposure_time_).count();
+    exposure_time_ = exposure_now;
+    if (view_count != exposure_views_) {
+        // A half-width meter is not interchangeable with a full-width meter.
+        for (auto& pending : frames_) {
+            pending.metered[0] = pending.metered[1] = false;
+        }
+    }
+    exposure_views_ = view_count;
+    float tone_exposure[3] = {
+        primary.exposure, primary.exposure, float(comparison ? extent_.width / 2 : extent_.width)};
     for (int v = 0; v < view_count; ++v) {
         const auto& s = v == 0 ? primary : *comparison;
+        if (s.adaptive_exposure != adaptive_enabled_[v]) {
+            adaptation_ready_[v] = false;
+            adaptive_gain_[v] = exposure_started_ ? displayed_gain_[v] / primary.exposure : 0;
+            for (auto& pending : frames_) {
+                pending.metered[v] = false;
+            }
+            adaptive_enabled_[v] = s.adaptive_exposure;
+        }
+        if (s.adaptive_exposure && f.metered[v]) {
+            // The existing frame fence completes this small coherent readback;
+            // metering never adds a queue-idle wait or a full-image CPU copy.
+            auto* samples = static_cast<float*>(f.meter.mapped) + v * 4096;
+            const double target = photometry::view_exposure_gain({samples, 4096});
+            if (exposure_step > .1) {
+                // Offline output may be slower than 10 fps. Integrate all of
+                // its frame interval without applying the interactive stall cap.
+                double remaining = exposure_step;
+                while (remaining > 1e-9) {
+                    const double step = std::min(remaining, .1);
+                    adaptive_gain_[v] = photometry::adapt_exposure(adaptive_gain_[v], target, step);
+                    remaining -= step;
+                }
+            } else {
+                adaptive_gain_[v] =
+                    photometry::adapt_exposure(adaptive_gain_[v], target, exposure_dt);
+            }
+            adaptation_ready_[v] = true;
+        }
         const auto& atmosphere = *atmospheres_[s.atmosphere_preset];
         const float twilight = float(photometry::twilight_gain(-asin(s.geometric_sun.z) / rad));
         const float pollution = float(photometry::pollution_luminance(s.pollution));
@@ -981,7 +1074,7 @@ bool Renderer::render(const RenderScene& primary,
             c *= float(lunar_mean / std::max(1e-20, old_lunar_mean));
         }
         float adaptation = float(photometry::night_exposure_gain);
-        if (s.atmosphere && s.auto_exposure) {
+        if (s.atmosphere && s.auto_exposure && !s.adaptive_exposure) {
             const double pollution_mean_ratio = (1.5 + .5 * exp(-pi)) / (1 + 2 * exp(-pi));
             double mean = photometry::night_floor + pollution * pollution_mean_ratio;
             const double moon_illuminance =
@@ -991,9 +1084,13 @@ bool Renderer::render(const RenderScene& primary,
             }
             adaptation = float(photometry::exposure_gain(mean, moon_illuminance));
         }
-        if (v == 0) {
-            effective_exposure_ = adaptation * s.exposure;
+        if (s.adaptive_exposure) {
+            tone_exposure[v] *= float(adaptive_gain_[v] / photometry::night_exposure_gain);
         }
+        if (v == 0) {
+            effective_exposure_ = adaptation * tone_exposure[v];
+        }
+        displayed_gain_[v] = adaptation * tone_exposure[v];
         const float atmosphere_uniform[] = {float(s.geometric_sun.x),
                                             float(s.geometric_sun.y),
                                             float(s.geometric_sun.z),
@@ -1186,7 +1283,8 @@ bool Renderer::render(const RenderScene& primary,
     hdr_ready.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(f.command,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                          0,
                          1,
                          &hdr_ready,
@@ -1194,6 +1292,44 @@ bool Renderer::render(const RenderScene& primary,
                          nullptr,
                          0,
                          nullptr);
+    for (int v = 0; v < view_count; ++v) {
+        const auto& s = v == 0 ? primary : *comparison;
+        f.metered[v] = s.adaptive_exposure;
+        if (!s.adaptive_exposure) {
+            continue;
+        }
+        const int origin = v ? int(extent_.width / 2) : 0;
+        const int meter_width =
+            comparison && v == 0 ? int(extent_.width / 2) : int(extent_.width) - origin;
+        const int32_t settings[] = {origin, meter_width, v};
+        vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_COMPUTE, meter_pipeline_);
+        vkCmdBindDescriptorSets(f.command,
+                                VK_PIPELINE_BIND_POINT_COMPUTE,
+                                meter_layout_,
+                                0,
+                                1,
+                                &f.meter_set,
+                                0,
+                                nullptr);
+        vkCmdPushConstants(
+            f.command, meter_layout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(settings), settings);
+        vkCmdDispatch(f.command, 8, 8, 1);
+    }
+    if (primary.adaptive_exposure || (comparison && comparison->adaptive_exposure)) {
+        VkMemoryBarrier meter_ready{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        meter_ready.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        meter_ready.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+        vkCmdPipelineBarrier(f.command,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             VK_PIPELINE_STAGE_HOST_BIT,
+                             0,
+                             1,
+                             &meter_ready,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr);
+    }
     vp = {0, 0, float(extent_.width), float(extent_.height), 0, 1};
     scissor = {{0, 0}, extent_};
     vkCmdSetViewport(f.command, 0, 1, &vp);
@@ -1204,8 +1340,12 @@ bool Renderer::render(const RenderScene& primary,
     vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_pipeline_);
     vkCmdBindDescriptorSets(
         f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_layout_, 0, 1, &f.tone_set, 0, nullptr);
-    vkCmdPushConstants(
-        f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &primary.exposure);
+    vkCmdPushConstants(f.command,
+                       tone_layout_,
+                       VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0,
+                       sizeof(tone_exposure),
+                       tone_exposure);
     vkCmdDraw(f.command, 3, 1, 0, 0);
     if (ui) {
         ImGui_ImplVulkan_RenderDrawData(ui, f.command);
@@ -1303,6 +1443,7 @@ bool Renderer::render(const RenderScene& primary,
         }
     }
     frame_ = (frame_ + 1) % 2;
+    exposure_started_ |= !primary.points.empty();
     return true;
 }
 
@@ -1318,6 +1459,7 @@ void Renderer::cleanup() {
         destroy_swapchain();
         for (auto& f : frames_) {
             release(f.instances);
+            release(f.meter);
             for (int v = 0; v < 2; ++v) {
                 release(f.atmosphere[v]);
                 release(f.features[v]);
@@ -1332,12 +1474,12 @@ void Renderer::cleanup() {
                 vkDestroyCommandPool(device_, f.pool, nullptr);
             }
         }
-        for (auto p : {sky_pipeline_, stars_pipeline_, tone_pipeline_}) {
+        for (auto p : {sky_pipeline_, stars_pipeline_, tone_pipeline_, meter_pipeline_}) {
             if (p) {
                 vkDestroyPipeline(device_, p, nullptr);
             }
         }
-        for (auto l : {sky_layout_, stars_layout_, tone_layout_}) {
+        for (auto l : {sky_layout_, stars_layout_, tone_layout_, meter_layout_}) {
             if (l) {
                 vkDestroyPipelineLayout(device_, l, nullptr);
             }
@@ -1373,6 +1515,9 @@ void Renderer::cleanup() {
         }
         if (feature_set_layout_) {
             vkDestroyDescriptorSetLayout(device_, feature_set_layout_, nullptr);
+        }
+        if (meter_set_layout_) {
+            vkDestroyDescriptorSetLayout(device_, meter_set_layout_, nullptr);
         }
         if (tone_set_layout_) {
             vkDestroyDescriptorSetLayout(device_, tone_set_layout_, nullptr);
