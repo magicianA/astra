@@ -179,10 +179,11 @@ void draw_rail(UiState& state) {
     const Translator tr{state.language};
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{8, 8});
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{0, 4});
-    window("tools", 24, 112, 64, 216);
+    window("tools", 24, 112, 64, 288);
     rail_button(state, UiPanel::Location, tr("地点"), 0);
     rail_button(state, UiPanel::Time, tr("时间"), 1);
     rail_button(state, UiPanel::Display, tr("显示"), 2);
+    rail_button(state, UiPanel::Explore, tr("探索"), 3);
     ImGui::End();
     ImGui::PopStyleVar(2);
 }
@@ -447,6 +448,9 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
     ImGui::SameLine();
     if (ImGui::Button(tr("载入场景"), {126, 36})) {
         scene = load_scenario(frame.user / "scene.json", frame.sky ? frame.sky->data_id : "");
+        if (!scene.migrations.empty()) {
+            state.notice = "旧场景已迁移到当前模型，画面可能与原版本不同。";
+        }
         state.track = false;
         state.playing = false;
         actions.recompute = true;
@@ -461,7 +465,8 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
 
 void draw_drawer(UiState& state, const UiFrame& frame, UiActions& actions) {
     const Translator tr{state.language};
-    if (state.panel == UiPanel::None || state.panel == UiPanel::Search) {
+    if (state.panel == UiPanel::None || state.panel == UiPanel::Search ||
+        state.panel == UiPanel::Explore) {
         return;
     }
     const float drawer_height = state.panel == UiPanel::Location ? 550.f : 680.f;
@@ -537,7 +542,7 @@ void draw_moon(UiState& state, const UiFrame& frame, UiActions& actions) {
     ImGui::SetCursorPos({105, 98});
     ImGui::TextDisabled("%s", tr("月面照明"));
     ImGui::SetCursorPos({18, 140});
-    if (moon->altitude() < 0) {
+    if (!frame.scene.horizon.visible(moon->observed, moon->angular_radius)) {
         ImGui::TextColored(accent, "%s", tr("地平线以下"));
     } else {
         ImGui::TextColored(ImVec4{.63f, .79f, .71f, 1}, "%s", tr("已在地平线上方"));
@@ -548,7 +553,7 @@ void draw_moon(UiState& state, const UiFrame& frame, UiActions& actions) {
     ImGui::TextDisabled(tr("距离 %s km"), number(moon->distance_au * au_km, 0).c_str());
     ImGui::Spacing();
     ImGui::BeginDisabled(frame.busy);
-    if (moon->altitude() >= 0) {
+    if (frame.scene.horizon.visible(moon->observed, moon->angular_radius)) {
         if (primary(tr("拉近看月亮"), {-1, 36})) {
             focus(state, frame.scene, *moon, true);
         }
@@ -556,7 +561,8 @@ void draw_moon(UiState& state, const UiFrame& frame, UiActions& actions) {
         state.playing = false;
         actions.seek_moon = true;
     }
-    if (moon->altitude() < 0 && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+    if (!frame.scene.horizon.visible(moon->observed, moon->angular_radius) &&
+        ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("%s",
                           tr("在未来 35 天内寻找：月球高度 ≥ 8°，太阳高度 ≤ "
                              "−6°\n每半小时采样，保留当前地点和时间标准"));
@@ -583,7 +589,7 @@ std::string lower(std::string text) {
     return text;
 }
 
-void draw_search(UiState& state, const UiFrame& frame) {
+void draw_search(UiState& state, const UiFrame& frame, UiActions& actions) {
     const Translator tr{state.language};
     if (state.panel != UiPanel::Search || !frame.sky || !frame.engine) {
         return;
@@ -592,6 +598,7 @@ void draw_search(UiState& state, const UiFrame& frame) {
     struct Match {
         const Object* object;
         std::string name;
+        std::optional<uint32_t> index;
     };
 
     std::vector<Match> matches;
@@ -607,12 +614,23 @@ void draw_search(UiState& state, const UiFrame& frame) {
                     : frame.engine->catalog.name(frame.engine->catalog.stars[object.catalog_index]);
             auto searchable = name + (object.hip ? " HIP " + std::to_string(object.hip) : "");
             if (lower(searchable).find(needle) != std::string::npos) {
-                matches.push_back({&object, tr(name.c_str())});
+                matches.push_back({&object, tr(name.c_str()), {}});
             }
         }
     };
     search_objects(frame.sky->bodies);
-    search_objects(frame.stars->stars);
+    if (state.search_query != needle || state.search_catalog != &frame.engine->catalog) {
+        state.search_query = needle;
+        state.search_catalog = &frame.engine->catalog;
+        state.search_matches = frame.engine->catalog.search(needle);
+    }
+    for (const auto index : state.search_matches) {
+        if (matches.size() == 6) {
+            break;
+        }
+        const auto name = frame.engine->catalog.name(frame.engine->catalog.stars[index]);
+        matches.push_back({nullptr, tr(name.c_str()), index});
+    }
     window("search-results",
            frame.width - 274.f,
            80,
@@ -621,15 +639,30 @@ void draw_search(UiState& state, const UiFrame& frame) {
     for (size_t i = 0; i < matches.size(); ++i) {
         ImGui::PushID(int(i));
         if (ImGui::Selectable(matches[i].name.c_str(), false, 0, {0, 30})) {
-            const auto& source = *matches[i].object;
-            focus(state, frame.scene, source.body ? source : observe_star(source, *frame.sky));
-            state.panel = UiPanel::None;
-            state.search[0] = '\0';
+            try {
+                if (matches[i].index) {
+                    auto selected = frame.engine->compute(
+                        frame.scene, 0, nullptr, SkyEngine::Scope::FullSky, matches[i].index);
+                    if (!selected->stars.empty()) {
+                        const auto& source = selected->stars.front();
+                        frame.scene.magnitude =
+                            std::min(16., std::max(frame.scene.magnitude, source.magnitude + 1));
+                        focus(state, frame.scene, source);
+                        actions.recompute = true;
+                    }
+                } else {
+                    focus(state, frame.scene, *matches[i].object);
+                }
+                state.panel = UiPanel::None;
+                state.search[0] = '\0';
+            } catch (const std::exception& error) {
+                state.notice = error.what();
+            }
         }
         ImGui::PopID();
     }
     if (matches.empty()) {
-        ImGui::TextWrapped("%s", tr("没有匹配的天体。可在显示设置中提高星等上限。"));
+        ImGui::TextWrapped("%s", tr("没有匹配的天体。支持恒星名称、完整 HIP 或 Gaia DR3 编号。"));
     }
     ImGui::End();
 }
@@ -781,7 +814,8 @@ UiActions draw_ui(UiState& state, const UiFrame& frame) {
     }
     draw_transport(state, frame, actions);
     draw_drawer(state, frame, actions);
-    draw_search(state, frame);
+    draw_search(state, frame, actions);
+    draw_exploration(state, frame, actions);
     return actions;
 }
 } // namespace astro

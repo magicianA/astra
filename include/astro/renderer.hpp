@@ -1,7 +1,7 @@
 #pragma once
 #include "atmosphere.hpp"
 #include "camera.hpp"
-#include "sky.hpp"
+#include "render_scene.hpp"
 #include <SDL3/SDL.h>
 #include <filesystem>
 #include <memory>
@@ -11,27 +11,6 @@
 struct ImDrawData;
 
 namespace astro {
-struct StarInstance {
-    float x, y, radius, kind;
-    float r, g, b, brightness;
-    float phase, limb, pad0 = 0, pad1 = 0;
-};
-
-struct RenderScene {
-    Camera camera;
-    Vec3 sun{0, 0, -1}, moon{0, 0, -1};
-    Vec3 geometric_sun{0, 0, -1}, geometric_moon{0, 0, -1};
-    float solar_flux = 1, lunar_flux = 0, height_km = 0;
-    int atmosphere_preset = 0;
-    bool auto_exposure = true;
-    bool atmosphere = true, ground = true;
-    bool milky_way = false;
-    float extinction = .2;
-    std::array<float, 4> galactic_rotation{0, 0, 0, 1};
-    float pollution = .05, moon_phase = 0, exposure = 1;
-    std::vector<StarInstance> points;
-};
-
 class Renderer {
     struct Buffer {
         VkBuffer handle{};
@@ -40,13 +19,20 @@ class Renderer {
         void* mapped{};
     };
 
+    struct Texture {
+        VkImage image{};
+        VkDeviceMemory memory{};
+        VkImageView view{};
+        VkSampler sampler{};
+    };
+
     struct Frame {
         VkCommandPool pool{};
         VkCommandBuffer command{};
         VkFence fence{};
         VkSemaphore acquired{};
-        Buffer instances, atmosphere;
-        VkDescriptorSet atmosphere_set{};
+        Buffer instances, atmosphere[2], features[2];
+        VkDescriptorSet atmosphere_set[2]{}, feature_set[2]{};
         VkImage hdr{};
         VkDeviceMemory hdr_memory{};
         VkImageView hdr_view{};
@@ -69,6 +55,8 @@ class Renderer {
     VkDescriptorPool descriptors_{};
     VkDescriptorSetLayout tone_set_layout_{};
     VkDescriptorSetLayout atmosphere_set_layout_{};
+    VkDescriptorSetLayout feature_set_layout_{};
+    Texture moon_albedo_, moon_height_;
     VkBool32 manual_atmosphere_filtering_ = VK_FALSE;
     std::unique_ptr<AtmosphereLut> atmospheres_[2];
     VkSampler sampler_{};
@@ -97,6 +85,7 @@ class Renderer {
     void create_swapchain();
     void destroy_swapchain();
     void create_pipelines();
+    void load_texture(const std::filesystem::path&, Texture&, bool srgb);
     void load_background(const std::filesystem::path&);
     void cleanup();
     VkShaderModule shader(const char*);
@@ -109,7 +98,10 @@ public:
     ~Renderer();
     Renderer(const Renderer&) = delete;
     void init_ui();
-    void render(const RenderScene&, ImDrawData*, const std::filesystem::path& screenshot = {});
+    bool render(const RenderScene&,
+                ImDrawData*,
+                const std::filesystem::path& screenshot = {},
+                const RenderScene* comparison = nullptr);
 
     void request_resize() {
         rebuild_ = true;

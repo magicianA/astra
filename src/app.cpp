@@ -192,7 +192,7 @@ bool over_ui(float x, float y) {
     return window != nullptr;
 }
 
-void draw_grid(const Camera& c, bool ground, Language language) {
+void draw_grid(const Camera& c, bool ground, Language language, float offset) {
     const Translator tr{language};
     auto* draw = ImGui::GetBackgroundDrawList();
     auto line = [&](auto point, int count) {
@@ -200,6 +200,7 @@ void draw_grid(const Camera& c, bool ground, Language language) {
         for (int i = 0; i <= count; i++) {
             auto v = point(i);
             auto p = c.project(v);
+            p.x += offset;
             if (p.visible && prev.visible && hypot(p.x - prev.x, p.y - prev.y) < 80) {
                 draw->AddLine({float(prev.x), float(prev.y)},
                               {float(p.x), float(p.y)},
@@ -229,123 +230,12 @@ void draw_grid(const Camera& c, bool ground, Language language) {
     const char* labels[] = {"北 N", "东 E", "南 S", "西 W"};
     for (int i = 0; i < 4; i++) {
         auto p = c.project({sin(i * pi / 2), cos(i * pi / 2), .005});
+        p.x += offset;
         if (p.visible) {
             draw_moving_text(
                 *draw, {float(p.x - 16), float(p.y + 8)}, color(130, 197, 202, 200), tr(labels[i]));
         }
     }
-}
-
-RenderScene render_scene(const SkySnapshot& sky,
-                         const SkySnapshot& stars,
-                         const Scenario& view,
-                         const Camera& camera) {
-    RenderScene result;
-    result.camera = camera;
-    result.milky_way = view.milky_way;
-    result.extinction = float(view.extinction);
-    result.galactic_rotation = galactic_rotation(sky.celestial_to_enu);
-    auto& s = sky.scenario;
-    result.atmosphere = s.atmosphere;
-    result.ground = s.ground;
-    result.pollution = float(s.light_pollution);
-    result.exposure = float(view.exposure);
-    result.atmosphere_preset = view.atmosphere_preset;
-    result.auto_exposure = view.auto_exposure;
-    result.height_km = float(s.height / 1000.);
-    result.moon_phase = float(sky.moon_phase);
-    for (auto& o : sky.bodies) {
-        if (o.body == 10) {
-            result.sun = o.observed;
-            result.geometric_sun = o.geometric;
-            result.solar_flux = float(1. / (o.distance_au * o.distance_au));
-        }
-        if (o.body == 301) {
-            result.moon = o.observed;
-            result.geometric_moon = o.geometric;
-            // One flux drives both the resolved surface and atmospheric moonlight.
-            result.lunar_flux = float(o.illuminance_lux / photometry::solar_lux);
-        }
-    }
-    const auto projection = camera.prepare();
-    const float limb =
-        float(atan2(dot(result.sun, projection.up), dot(result.sun, projection.right)));
-    auto add = [&](const Object& o) {
-        auto p = projection.project(o.observed);
-        if (!p.visible) {
-            return;
-        }
-        double alt = o.altitude();
-        if (s.ground && alt + o.angular_radius < 0) {
-            return;
-        }
-        double mag = o.magnitude;
-        bool disk = o.body && (o.body == 301 || o.body == 10 ||
-                               o.angular_radius * projection.maximum_scale(p) > 1.3);
-        if (!disk && mag > s.magnitude) {
-            return;
-        }
-        // Unresolved sources share a compact screen-space point-spread function.
-        // Its six-sigma support is independent of magnitude and camera zoom.
-        float radius = disk ? float(o.angular_radius * projection.scale) : 3.f;
-        // A point source's integrated illuminance is spread over a Gaussian
-        // footprint in solid angle. Resolved discs use their mean luminance.
-        const double pixel_area = photometry::pixel_solid_angle(p.x - camera.width / 2,
-                                                                p.y - camera.height / 2,
-                                                                projection.scale,
-                                                                int(projection.kind));
-        float strength =
-            float(disk ? photometry::mean_disc_luminance(o.illuminance_lux, o.angular_radius)
-                       : o.illuminance_lux / (2 * pi * .5 * .5 * pixel_area));
-        if (!disk) {
-            // Fade through the detection limit instead of toggling stars on/off.
-            const double limit = s.magnitude;
-            const double visibility = std::clamp((limit - mag) / .75, 0., 1.);
-            strength *= float(visibility * visibility * (3 - 2 * visibility));
-        }
-        const auto color = photometry::unit_luminance(o.color);
-        result.points.push_back({float(p.x),
-                                 float(p.y),
-                                 radius,
-                                 disk ? (o.body == 10 ? 1.f : 2.f) : 0.f,
-                                 color[0],
-                                 color[1],
-                                 color[2],
-                                 strength,
-                                 float(o.phase),
-                                 limb,
-                                 0,
-                                 0});
-    };
-    const double limiting_magnitude = s.magnitude;
-    const double refraction_margin = s.atmosphere ? refraction(-rad, s.pressure, s.temperature) : 0;
-    const double corner_angle = projection.corner_angle();
-    const double minimum_dot = cos(std::min(pi, corner_angle + refraction_margin));
-    const double lowest_altitude = -sin(std::min(pi / 2, refraction_margin));
-    for (const auto& source : stars.stars) {
-        if (source.magnitude > limiting_magnitude) {
-            continue;
-        }
-        const Vec3 geometric = sky.celestial_to_enu * source.icrs;
-        // A cone around the full viewport, enlarged by the maximum refraction,
-        // safely rejects off-screen stars before expensive trigonometry.
-        if (dot(geometric, projection.forward) < minimum_dot ||
-            (s.ground && geometric.z < lowest_altitude)) {
-            continue;
-        }
-        Object star = source;
-        star.geometric = geometric;
-        star.observed = s.atmosphere ? refract(geometric, s.pressure, s.temperature) : geometric;
-        add(star);
-    }
-    auto bodies = sky.bodies;
-    std::sort(bodies.begin(), bodies.end(), [](auto& a, auto& b) {
-        return a.distance_au > b.distance_au;
-    });
-    for (auto& o : bodies) {
-        add(o);
-    }
-    return result;
 }
 
 void annotate(const SkySnapshot& sky,
@@ -355,12 +245,14 @@ void annotate(const SkySnapshot& sky,
               const Camera& c,
               uint64_t selected,
               bool selected_body,
-              Language language) {
+              Language language,
+              float offset = 0) {
     const Translator tr{language};
     auto* draw = ImGui::GetBackgroundDrawList();
     if (s.grid) {
-        draw_grid(c, sky.scenario.ground, language);
+        draw_grid(c, sky.scenario.ground, language, offset);
     }
+    draw->PushClipRect({offset, 0}, {offset + float(c.width), float(c.height)}, true);
     std::vector<ImVec2> occupied;
     auto label = [&](const Object& source, bool force) {
         if (!force && source.body == 0 && source.magnitude > 2.7) {
@@ -370,13 +262,15 @@ void annotate(const SkySnapshot& sky,
             return;
         }
         const auto o = source.body ? source : observe_star(source, sky);
-        if (sky.scenario.ground && o.altitude() < 0) {
+        if (sky.scenario.ground && !s.horizon.visible(o.observed, o.angular_radius)) {
             return;
         }
         auto p = c.project(o.observed);
         if (!p.visible) {
             return;
         }
+        const float disk_radius = float(o.angular_radius * c.prepare().maximum_scale(p));
+        p.x += offset;
         if (!force) {
             for (auto xy : occupied) {
                 if (abs(xy.x - p.x) < 100 && abs(xy.y - p.y) < 22) {
@@ -391,7 +285,6 @@ void annotate(const SkySnapshot& sky,
         std::string name =
             o.body ? body_name(o.body) : engine.catalog.name(engine.catalog.stars[o.catalog_index]);
         name = tr(name.c_str());
-        const float disk_radius = float(o.angular_radius * c.prepare().maximum_scale(p));
         ImVec2 pos{float(p.x) + std::max(9.f, disk_radius + 15), float(p.y - 8)};
         draw_moving_text(*draw, {pos.x + 1, pos.y + 1}, color(0, 0, 0, 180), name.c_str());
         draw_moving_text(*draw,
@@ -410,6 +303,35 @@ void annotate(const SkySnapshot& sky,
                           selection_color);
         }
     };
+    if (s.constellations && s.constellation_labels) {
+        for (const auto& figure : engine.catalog.constellations) {
+            Vec3 centre{};
+            for (const auto& segment : figure.segments) {
+                for (auto index : segment) {
+                    auto found = stars.guide_stars.find(index);
+                    if (found != stars.guide_stars.end()) {
+                        centre = centre + observe_star(found->second, sky).observed;
+                    }
+                }
+            }
+            if (norm(centre) < 1e-8) {
+                continue;
+            }
+            centre = unit(centre);
+            if (s.ground && !s.horizon.visible(centre)) {
+                continue;
+            }
+            const auto point = c.project(centre);
+            if (!point.visible) {
+                continue;
+            }
+            const char* name = tr(figure.name.c_str());
+            const auto size = ImGui::CalcTextSize(name);
+            const ImVec2 pos{float(point.x) + offset - size.x / 2, float(point.y) - 18};
+            draw_moving_text(*draw, {pos.x + 1, pos.y + 1}, color(0, 0, 0, 190), name);
+            draw_moving_text(*draw, pos, color(118, 177, 201, 195), name);
+        }
+    }
     if (s.labels) {
         for (auto& o : sky.bodies) {
             if (!selected_body || o.id != selected) {
@@ -426,6 +348,7 @@ void annotate(const SkySnapshot& sky,
     if (auto* o = selected_object(selected_body ? sky : stars, selected, selected_body)) {
         label(*o, true);
     }
+    draw->PopClipRect();
 }
 
 } // namespace
@@ -499,6 +422,9 @@ int run_app(const AppOptions& options) {
             worker.request(scene);
             UiState ui;
             ui.language = language;
+            if (!scene.migrations.empty()) {
+                ui.notice = "旧场景已迁移到当前模型，画面可能与原版本不同。";
+            }
             ui.pending_shot = options.screenshot;
             if (options.playback_speed != 0) {
                 ui.playing = true;
@@ -527,7 +453,30 @@ int run_app(const AppOptions& options) {
             double busy_since = -1;
             std::shared_ptr<SkyEngine> engine;
             std::shared_ptr<SkySnapshot> rendered_snapshot;
-            RenderScene render;
+            RenderScene render, comparison_render;
+            std::future<std::shared_ptr<SkySnapshot>> comparison_job;
+            std::shared_ptr<SkySnapshot> comparison_sky, rendered_comparison;
+            std::optional<Scenario> comparison_request;
+            std::string comparison_error;
+            auto comparison_key = [](Scenario s) {
+                s.azimuth = 0;
+                s.elevation = 0;
+                s.roll = 0;
+                s.fov = 60;
+                s.exposure = 1;
+                s.auto_exposure = true;
+                s.compare = false;
+                s.date.year = s.comparison_year;
+                if (s.scale == TimeScale::UTC && (s.date.year < 1973 || s.date.year >= 2027)) {
+                    s.scale = TimeScale::UT1;
+                }
+                if (!valid_date(s.date, s.julian)) {
+                    s.date.day = 28;
+                }
+                return s;
+            };
+            std::unique_ptr<Recording> recording;
+            bool start_cli_recording = options.sequence.has_value();
             int frame = 0;
             auto last = std::chrono::steady_clock::now();
             auto first = last;
@@ -536,10 +485,12 @@ int run_app(const AppOptions& options) {
             ImVec2 drag_origin{};
             std::optional<Camera> drag_camera;
             bool dragged = false;
+            float drag_offset = 0;
             auto drag_view = [&](float x, float y) {
                 if (!drag_camera) {
                     return;
                 }
+                x -= drag_offset;
                 dragged |= hypot(x - drag_origin.x, y - drag_origin.y) > 4;
                 if (!dragged) {
                     return;
@@ -579,6 +530,12 @@ int run_app(const AppOptions& options) {
                     if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST ||
                         event.type == SDL_EVENT_WINDOW_RESIZED) {
                         drag_camera.reset();
+                    }
+                    if (recording) {
+                        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) {
+                            ui.exploration->cancel_recording = true;
+                        }
+                        continue;
                     }
                     if (event.type == SDL_EVENT_KEY_DOWN && !io.WantTextInput) {
                         switch (event.key.key) {
@@ -626,12 +583,17 @@ int run_app(const AppOptions& options) {
                         event.button.button == SDL_BUTTON_LEFT) {
                         drag_camera.reset();
                         drag_origin = {event.button.x, event.button.y};
+                        drag_offset = 0;
                         dragged = false;
                         int w, h;
                         SDL_GetWindowSize(window, &w, &h);
-                        const auto camera = camera_for(scene, w, h);
+                        const auto camera = camera_for(scene, scene.compare ? w / 2 : w, h);
+                        if (scene.compare && event.button.x >= w / 2) {
+                            drag_offset = float(w / 2);
+                        }
+                        drag_origin.x -= drag_offset;
                         if (!over_ui(event.button.x, event.button.y) &&
-                            camera.contains(event.button.x, event.button.y)) {
+                            camera.contains(event.button.x - drag_offset, event.button.y)) {
                             drag_camera = camera;
                         }
                     }
@@ -643,7 +605,7 @@ int run_app(const AppOptions& options) {
                     if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                         event.button.button == SDL_BUTTON_LEFT && drag_camera) {
                         drag_view(event.button.x, event.button.y);
-                        if (!dragged) {
+                        if (!dragged && drag_offset == 0) {
                             pick_position = ImVec2{event.button.x, event.button.y};
                         }
                         drag_camera.reset();
@@ -669,6 +631,9 @@ int run_app(const AppOptions& options) {
                                                                : "已前往晨昏时刻：") +
                                  format_date(scene.date) + " " + scale_name(scene.scale);
                     }
+                }
+                if (!error.empty() && (options.frames || options.sequence)) {
+                    throw std::runtime_error(error);
                 }
                 if (was_playing && !playing) {
                     request = true;
@@ -784,23 +749,78 @@ int run_app(const AppOptions& options) {
                     scene.elevation = pan.elevation / rad;
                     scene.roll = pan.roll / rad;
                 }
-                auto camera = camera_for(scene, width, height);
+                auto camera = camera_for(scene, scene.compare ? width / 2 : width, height);
+                if (comparison_job.valid() &&
+                    comparison_job.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+                    try {
+                        comparison_sky = comparison_job.get();
+                        comparison_error.clear();
+                    } catch (const std::exception& e) {
+                        comparison_error = e.what();
+                        notice = comparison_error;
+                    }
+                }
+                if (scene.compare && engine && sky) {
+                    auto candidate = sky->scenario;
+                    candidate.comparison_year = scene.comparison_year;
+                    candidate = comparison_key(candidate);
+                    if (!comparison_job.valid() &&
+                        (!comparison_request || *comparison_request != candidate)) {
+                        comparison_request = candidate;
+                        comparison_job = std::async(std::launch::async, [engine, candidate] {
+                            return engine->compute(candidate);
+                        });
+                    }
+                    if (comparison_sky) {
+                        auto view = scene;
+                        auto secondary_camera = camera;
+                        secondary_camera.width = width - width / 2;
+                        const auto& old = comparison_render.camera;
+                        if (rendered_comparison != comparison_sky ||
+                            old.width != secondary_camera.width ||
+                            old.height != secondary_camera.height ||
+                            old.azimuth != secondary_camera.azimuth ||
+                            old.elevation != secondary_camera.elevation ||
+                            old.roll != secondary_camera.roll || old.fov != secondary_camera.fov ||
+                            old.projection != secondary_camera.projection) {
+                            comparison_render = render_scene(*comparison_sky,
+                                                             *comparison_sky,
+                                                             view,
+                                                             secondary_camera,
+                                                             &engine->catalog);
+                            rendered_comparison = comparison_sky;
+                        }
+                        comparison_render.auto_exposure = scene.auto_exposure;
+                        comparison_render.atmosphere_preset = scene.atmosphere_preset;
+                        comparison_render.milky_way = scene.milky_way;
+                    }
+                }
                 ImGui_ImplVulkan_NewFrame();
                 ImGui_ImplSDL3_NewFrame();
                 ImGui::NewFrame();
                 if (pick_position && !io.WantCaptureMouse && sky && stars) {
                     int w, h;
                     SDL_GetWindowSize(window, &w, &h);
-                    auto c = camera_for(scene, w, h);
+                    auto c = camera_for(scene, scene.compare ? w / 2 : w, h);
+                    const bool blocked =
+                        scene.ground &&
+                        !scene.horizon.visible(c.unproject(pick_position->x, pick_position->y));
                     double best = 18;
                     std::optional<Object> found;
                     auto pick = [&](const Object& o) {
-                        if (sky->scenario.ground && o.altitude() < 0) {
+                        if (blocked) {
                             return;
                         }
-                        auto p = c.project(o.observed);
+                        if (sky->scenario.ground &&
+                            !scene.horizon.visible(o.observed, o.angular_radius)) {
+                            return;
+                        }
+                        auto p = c.prepare().project(o.observed, o.angular_radius);
                         if (p.visible) {
-                            double distance = hypot(p.x - pick_position->x, p.y - pick_position->y);
+                            double distance =
+                                std::max(0.,
+                                         hypot(p.x - pick_position->x, p.y - pick_position->y) -
+                                             o.angular_radius * c.prepare().maximum_scale(p));
                             if (distance < best) {
                                 best = distance;
                                 found = o;
@@ -820,11 +840,52 @@ int run_app(const AppOptions& options) {
                     }
                 }
 
+                if (scene.compare) {
+                    auto* draw = ImGui::GetForegroundDrawList();
+                    draw->AddLine({float(width / 2), 0},
+                                  {float(width / 2), float(height)},
+                                  color(130, 150, 170, 180));
+                    const auto a = sky ? format_date(sky->scenario.date) + " " +
+                                             scale_name(sky->scenario.scale)
+                                       : std::string{};
+                    const auto b = comparison_sky
+                                       ? format_date(comparison_sky->scenario.date) + " " +
+                                             scale_name(comparison_sky->scenario.scale)
+                                       : std::string(tr("后台计算中…"));
+                    draw->AddText({float(width / 4 - 100), 90}, color(200, 215, 220), a.c_str());
+                    draw->AddText(
+                        {float(3 * width / 4 - 100), 90}, color(220, 198, 165), b.c_str());
+                }
                 if (sky && engine) {
                     annotate(
                         *sky, *stars, *engine, scene, camera, selected, selected_body, ui.language);
+                    if (scene.compare && comparison_sky) {
+                        auto right_camera = camera;
+                        right_camera.width = width - width / 2;
+                        annotate(*comparison_sky,
+                                 *comparison_sky,
+                                 *engine,
+                                 scene,
+                                 right_camera,
+                                 0,
+                                 false,
+                                 ui.language,
+                                 float(width / 2));
+                    }
                 }
-                if (panels) {
+                if (recording) {
+                    ImGui::SetNextWindowPos(
+                        {float(width / 2), float(height - 90)}, ImGuiCond_Always, {.5f, 1});
+                    ImGui::Begin("recording", nullptr, fixed | ImGuiWindowFlags_AlwaysAutoResize);
+                    ImGui::Text("%s %d / %d",
+                                tr(recording->encoding() ? "正在编码视频…" : "正在导出"),
+                                recording->completed,
+                                recording->request.frames);
+                    if (ImGui::Button(tr("取消导出"), {280, 32})) {
+                        ui.exploration->cancel_recording = true;
+                    }
+                    ImGui::End();
+                } else if (panels) {
                     auto actions = draw_ui(ui,
                                            {scene,
                                             sky.get(),
@@ -834,7 +895,8 @@ int run_app(const AppOptions& options) {
                                             height,
                                             show_busy,
                                             title,
-                                            stars.get()});
+                                            stars.get(),
+                                            engine});
                     request |= actions.recompute;
                     seek_moon = actions.seek_moon;
                     seek_twilight = actions.seek_twilight;
@@ -880,6 +942,56 @@ int run_app(const AppOptions& options) {
                     ImGui::PopTextWrapPos();
                     ImGui::End();
                 }
+                if ((start_cli_recording || ui.exploration->begin_recording) && sky && engine &&
+                    !busy) {
+                    start_cli_recording = false;
+                    ui.exploration->begin_recording = false;
+                    try {
+                        auto sequence =
+                            options.sequence ? *options.sequence : ui.exploration->sequence;
+                        if (!options.sequence) {
+                            sequence.directory /=
+                                "astra-" +
+                                std::to_string(
+                                    std::chrono::system_clock::now().time_since_epoch().count());
+                        }
+                        auto initial = scene;
+                        if (sequence.lock_exposure) {
+                            initial.auto_exposure = false;
+                            initial.exposure =
+                                std::clamp(renderer.effective_exposure() / 40., exp2(-24.), 16.);
+                        }
+                        recording = std::make_unique<Recording>(sequence, initial);
+                        ui.exploration->recording = true;
+                        ui.exploration->completed_frames = 0;
+                        scene = sequence_scene(initial, sequence, 0);
+                        playing = false;
+                        track = false;
+                        drag_camera.reset();
+                        pending_shot = recording->frame_path();
+                        shot_done = false;
+                        request = true;
+                        SDL_SetWindowResizable(window, false);
+                    } catch (const std::exception& e) {
+                        if (options.sequence) {
+                            throw;
+                        }
+                        notice = e.what();
+                    }
+                }
+                if (recording && ui.exploration->cancel_recording) {
+                    recording->cancel();
+                    notice = "导出已取消，已完成帧保留在：" + recording->request.directory.string();
+                    recording.reset();
+                    ui.exploration->recording = false;
+                    ui.exploration->cancel_recording = false;
+                    pending_shot.clear();
+                    SDL_SetWindowResizable(window, true);
+                    if (options.sequence) {
+                        exit_status = 3;
+                        quit = true;
+                    }
+                }
                 if (request || seek_moon || seek_twilight) {
                     try {
                         validate(scene);
@@ -897,7 +1009,7 @@ int run_app(const AppOptions& options) {
                     prior.projection != camera.projection;
                 if (sky && stars &&
                     (sky != rendered_snapshot || stars != rendered_stars || camera_changed)) {
-                    render = render_scene(*sky, *stars, scene, camera);
+                    render = render_scene(*sky, *stars, scene, camera, &engine->catalog);
                     rendered_stars = stars;
                     rendered_snapshot = sky;
                 }
@@ -908,12 +1020,16 @@ int run_app(const AppOptions& options) {
                 render.milky_way = scene.milky_way && bool(sky);
                 bool capture = !pending_shot.empty() && !shot_done && sky &&
                                sky == latest_snapshot && !playing && !busy && !request &&
+                               (!scene.compare || (comparison_sky && !comparison_job.valid() &&
+                                                   comparison_error.empty())) &&
                                frame > 10 && (!options.smoke || frame > 240);
                 try {
-                    renderer.render(render,
-                                    options.hide_ui ? nullptr : ImGui::GetDrawData(),
-                                    capture ? pending_shot : std::filesystem::path{});
-                    if (capture) {
+                    const bool presented = renderer.render(
+                        render,
+                        (options.hide_ui || recording) ? nullptr : ImGui::GetDrawData(),
+                        capture ? pending_shot : std::filesystem::path{},
+                        scene.compare ? &comparison_render : nullptr);
+                    if (capture && presented) {
                         auto saved = sky->scenario;
                         saved.azimuth = scene.azimuth;
                         saved.elevation = scene.elevation;
@@ -924,18 +1040,73 @@ int run_app(const AppOptions& options) {
                         saved.auto_exposure = scene.auto_exposure;
                         saved.atmosphere_preset = scene.atmosphere_preset;
                         saved.milky_way = scene.milky_way;
+                        saved.compare = scene.compare;
+                        saved.comparison_year = scene.comparison_year;
+                        saved.constellation_labels = scene.constellation_labels;
+                        saved.labels = scene.labels;
+                        saved.grid = scene.grid;
                         auto meta = pending_shot;
                         meta.replace_extension("json");
                         save_scenario(
                             saved, meta, sky->data_id, &sky->time, renderer.effective_exposure());
-                        notice = "截图已保存：" + pending_shot.string();
+                        if (!recording) {
+                            notice = "截图已保存：" + pending_shot.string();
+                        }
                         std::cout << "Screenshot: " << pending_shot << std::endl;
                         shot_done = true;
+                        if (recording) {
+                            try {
+                                recording->captured();
+                                ui.exploration->completed_frames = recording->completed;
+                                if (recording->completed < recording->request.frames) {
+                                    scene = sequence_scene(recording->initial,
+                                                           recording->request,
+                                                           recording->completed);
+                                    pending_shot = recording->frame_path();
+                                    shot_done = false;
+                                    worker.request(scene);
+                                } else {
+                                    pending_shot.clear();
+                                }
+                            } catch (const std::exception& error) {
+                                if (options.sequence) {
+                                    throw;
+                                }
+                                notice = error.what();
+                                recording.reset();
+                                pending_shot.clear();
+                                ui.exploration->recording = false;
+                                SDL_SetWindowResizable(window, true);
+                            }
+                        }
                     }
                 } catch (const std::exception& e) {
                     // A failed Vulkan submit can leave a frame fence unsignalled.
                     // Exit rather than retrying a frame with invalid GPU state.
                     throw std::runtime_error(std::string("Rendering failed: ") + e.what());
+                }
+                if (recording) {
+                    try {
+                        if (recording->poll()) {
+                            notice = "导出完成：" + recording->request.directory.string();
+                            std::cout << "Sequence: " << recording->request.directory << std::endl;
+                            recording.reset();
+                            ui.exploration->recording = false;
+                            SDL_SetWindowResizable(window, true);
+                            if (options.sequence) {
+                                quit = true;
+                            }
+                        }
+                    } catch (const std::exception& e) {
+                        if (options.sequence) {
+                            throw;
+                        }
+                        notice = e.what();
+                        recording.reset();
+                        pending_shot.clear();
+                        ui.exploration->recording = false;
+                        SDL_SetWindowResizable(window, true);
+                    }
                 }
                 ++frame;
                 if (options.frames && frame >= options.frames && !pending_shot.empty() &&
@@ -968,6 +1139,9 @@ int run_app(const AppOptions& options) {
         }
         ImGui_ImplSDL3_Shutdown();
     } catch (...) {
+        if (io.BackendPlatformUserData) {
+            ImGui_ImplSDL3_Shutdown();
+        }
         ImGui::DestroyContext();
         SDL_DestroyWindow(window);
         SDL_Quit();

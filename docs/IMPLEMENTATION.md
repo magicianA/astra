@@ -2,6 +2,10 @@
 
 2026-09-04 开始实现，2026-09-05 UTC 完成本机验证。用户授权实现，并明确 Windows 和 Linux 暂不测试。
 
+## 2026 年 9 月扩展
+
+已修复搜索卡顿、离轴月相方向、放大天体边缘裁切和场景模型版本兼容检查。新增六组探索功能，入口、算法、数据许可和限制统一记录在 [EXPLORATION.md](EXPLORATION.md)。搜索支持完整 HIP / Gaia DR3 编号及名称，结果不受当前渲染星等限制。下文保留首版实现记录。
+
 ## 可运行交付
 
 `dist/Astra.app` 是随附数据的本机 arm64 应用，约 3.4 GiB。包含 Vulkan Loader、MoltenVK、SDL3、ERFA、libpng、Noto 字体、SPIR-V、合并星表、DE441、CIO 和时间数据。CSPICE 静态链接。

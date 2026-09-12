@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "atmosphere_render.glsl"
+#include "features.glsl"
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 outputColor;
 layout(set = 0, binding = 0) uniform sampler2D milkyWay;
@@ -12,7 +13,7 @@ void main() {
     }
     vec3 dir = skyDirection(uv);
     float altitude = asin(clamp(dir.z, -1., 1.));
-    if (p.moonGround.w > .5 && altitude < 0.) {
+    if (terrainOccludes(dir)) {
         // A neutral Lambertian horizon, without invented geographic terrain.
         vec3 irradiance = p.sunAtmosphere.w > .5 ? skyIrradiance() : vec3(0.);
         if (p.sunAtmosphere.w > .5) {

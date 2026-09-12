@@ -1,6 +1,7 @@
 #pragma once
 #include "i18n.hpp"
 #include "scenario.hpp"
+#include "sequence.hpp"
 #include <filesystem>
 
 namespace astro {
@@ -11,6 +12,7 @@ struct AppOptions {
     bool validation = false, smoke = false, hide_ui = false;
     int frames = 0;
     double playback_speed = 0;
+    std::optional<SequenceRequest> sequence;
 };
 
 int run_app(const AppOptions&);

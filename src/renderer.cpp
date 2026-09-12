@@ -205,7 +205,7 @@ Renderer::Renderer(SDL_Window* w,
         check(vkCreateDevice(physical_, &di, nullptr, &device_));
         vkGetDeviceQueue(device_, family_, 0, &queue_);
         VkDescriptorPoolSize pools[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64},
-                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2}};
+                                        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8}};
         VkDescriptorPoolCreateInfo dp{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         dp.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         dp.maxSets = 32;
@@ -259,30 +259,33 @@ Renderer::Renderer(SDL_Window* w,
                 i);
         }
         for (auto& f : frames_) {
-            f.atmosphere = buffer(80, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-            VkDescriptorSetAllocateInfo allocate{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-            allocate.descriptorPool = descriptors_;
-            allocate.descriptorSetCount = 1;
-            allocate.pSetLayouts = &atmosphere_set_layout_;
-            check(vkAllocateDescriptorSets(device_, &allocate, &f.atmosphere_set));
-            std::array<VkDescriptorImageInfo, 8> images{};
-            std::array<VkWriteDescriptorSet, 9> writes{};
-            VkDescriptorBufferInfo uniform{f.atmosphere.handle, 0, 80};
-            for (uint32_t i = 0; i < writes.size(); ++i) {
-                auto& write = writes[i];
-                write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                write.dstSet = f.atmosphere_set;
-                write.dstBinding = i;
-                write.descriptorCount = 1;
-                write.descriptorType = atmosphere_bindings[i].descriptorType;
-                if (i == 8) {
-                    write.pBufferInfo = &uniform;
-                } else {
-                    images[i] = atmospheres_[i / 4]->descriptor(i % 4);
-                    write.pImageInfo = &images[i];
+            for (int v = 0; v < 2; ++v) {
+                f.atmosphere[v] = buffer(80, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+                VkDescriptorSetAllocateInfo allocate{
+                    VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+                allocate.descriptorPool = descriptors_;
+                allocate.descriptorSetCount = 1;
+                allocate.pSetLayouts = &atmosphere_set_layout_;
+                check(vkAllocateDescriptorSets(device_, &allocate, &f.atmosphere_set[v]));
+                std::array<VkDescriptorImageInfo, 8> images{};
+                std::array<VkWriteDescriptorSet, 9> writes{};
+                VkDescriptorBufferInfo uniform{f.atmosphere[v].handle, 0, 80};
+                for (uint32_t i = 0; i < writes.size(); ++i) {
+                    auto& write = writes[i];
+                    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    write.dstSet = f.atmosphere_set[v];
+                    write.dstBinding = i;
+                    write.descriptorCount = 1;
+                    write.descriptorType = atmosphere_bindings[i].descriptorType;
+                    if (i == 8) {
+                        write.pBufferInfo = &uniform;
+                    } else {
+                        images[i] = atmospheres_[i / 4]->descriptor(i % 4);
+                        write.pImageInfo = &images[i];
+                    }
                 }
+                vkUpdateDescriptorSets(device_, uint32_t(writes.size()), writes.data(), 0, nullptr);
             }
-            vkUpdateDescriptorSets(device_, uint32_t(writes.size()), writes.data(), 0, nullptr);
             VkCommandPoolCreateInfo ci{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
             ci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
             ci.queueFamilyIndex = family_;
@@ -299,6 +302,57 @@ Renderer::Renderer(SDL_Window* w,
             check(vkCreateSemaphore(device_, &sem, nullptr, &f.acquired));
         }
         load_background(background);
+        load_texture(
+            background.parent_path().parent_path() / "moon/albedo.png", moon_albedo_, true);
+        load_texture(
+            background.parent_path().parent_path() / "moon/height.png", moon_height_, false);
+        VkDescriptorSetLayoutBinding feature_bindings[] = {
+            {0,
+             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+             1,
+             VK_SHADER_STAGE_FRAGMENT_BIT,
+             nullptr},
+            {1,
+             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+             1,
+             VK_SHADER_STAGE_FRAGMENT_BIT,
+             nullptr},
+            {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
+        dl.bindingCount = 3;
+        dl.pBindings = feature_bindings;
+        check(vkCreateDescriptorSetLayout(device_, &dl, nullptr, &feature_set_layout_));
+        for (auto& f : frames_) {
+            for (int v = 0; v < 2; ++v) {
+                f.features[v] = buffer(2992, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+                VkDescriptorSetAllocateInfo allocate{
+                    VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+                allocate.descriptorPool = descriptors_;
+                allocate.descriptorSetCount = 1;
+                allocate.pSetLayouts = &feature_set_layout_;
+                check(vkAllocateDescriptorSets(device_, &allocate, &f.feature_set[v]));
+                VkDescriptorImageInfo images[] = {{moon_albedo_.sampler,
+                                                   moon_albedo_.view,
+                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+                                                  {moon_height_.sampler,
+                                                   moon_height_.view,
+                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
+                VkDescriptorBufferInfo uniform{f.features[v].handle, 0, 2992};
+                VkWriteDescriptorSet writes[3]{};
+                for (int i = 0; i < 3; ++i) {
+                    writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    writes[i].dstSet = f.feature_set[v];
+                    writes[i].dstBinding = i;
+                    writes[i].descriptorCount = 1;
+                    writes[i].descriptorType = feature_bindings[i].descriptorType;
+                    if (i == 2) {
+                        writes[i].pBufferInfo = &uniform;
+                    } else {
+                        writes[i].pImageInfo = &images[i];
+                    }
+                }
+                vkUpdateDescriptorSets(device_, 3, writes, 0, nullptr);
+            }
+        }
         create_swapchain();
         create_pipelines();
         std::cout << "Vulkan GPU: " << gpu_ << "; HDR format " << hdr_format_ << std::endl;
@@ -308,17 +362,17 @@ Renderer::Renderer(SDL_Window* w,
     }
 }
 
-void Renderer::load_background(const std::filesystem::path& path) {
+void Renderer::load_texture(const std::filesystem::path& path, Texture& texture, bool srgb) {
     png_image source{};
     source.version = PNG_IMAGE_VERSION;
     if (!png_image_begin_read_from_file(&source, path.string().c_str())) {
         const std::string error = source.message;
         png_image_free(&source);
-        throw std::runtime_error("Cannot read Milky Way texture: " + error);
+        throw std::runtime_error("Cannot read Sky texture: " + error);
     }
     if (!source.width || source.width != source.height * 2 || source.width > 16384) {
         png_image_free(&source);
-        throw std::runtime_error("Milky Way texture must be a 2:1 all-sky PNG, at most 16384 wide");
+        throw std::runtime_error("Sky texture must be a 2:1 all-sky PNG, at most 16384 wide");
     }
     source.format = PNG_FORMAT_RGBA;
     std::vector<unsigned char> pixels(PNG_IMAGE_SIZE(source));
@@ -326,17 +380,19 @@ void Renderer::load_background(const std::filesystem::path& path) {
     if (!png_image_finish_read(&source, nullptr, pixels.data(), 0, nullptr)) {
         const std::string error = source.message;
         png_image_free(&source);
-        throw std::runtime_error("Cannot decode Milky Way texture: " + error);
+        throw std::runtime_error("Cannot decode Sky texture: " + error);
     }
     png_image_free(&source);
 
-    const auto mips = make_srgb_mips(size.width, size.height, pixels);
+    const auto format = srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+    const auto mips = srgb ? make_srgb_mips(size.width, size.height, pixels)
+                           : ImageMipChain{pixels, {{size.width, size.height, 0}}};
     std::vector<unsigned char>().swap(pixels);
     // Upload the sharpest level supported by the device. Older Vulkan devices
     // can use the same data pack without requiring a 16K texture allocation.
     VkImageFormatProperties format_properties;
     check(vkGetPhysicalDeviceImageFormatProperties(physical_,
-                                                   VK_FORMAT_R8G8B8A8_SRGB,
+                                                   format,
                                                    VK_IMAGE_TYPE_2D,
                                                    VK_IMAGE_TILING_OPTIMAL,
                                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -352,12 +408,13 @@ void Renderer::load_background(const std::filesystem::path& path) {
     const auto level_count = uint32_t(mips.levels.size()) - first_level;
     const auto upload_offset = mips.levels[first_level].offset;
     const auto upload_bytes = mips.pixels.size() - upload_offset;
-    std::cout << "Milky Way: " << size.width << 'x' << size.height << "; " << level_count
-              << " mip levels; anisotropy " << background_anisotropy_ << 'x' << std::endl;
+    std::cout << "Texture " << path.filename().string() << ": " << size.width << 'x' << size.height
+              << "; " << level_count << " mip levels; anisotropy " << background_anisotropy_ << 'x'
+              << std::endl;
 
     VkImageCreateInfo image{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     image.imageType = VK_IMAGE_TYPE_2D;
-    image.format = VK_FORMAT_R8G8B8A8_SRGB;
+    image.format = format;
     image.extent = size;
     image.mipLevels = level_count;
     image.arrayLayers = 1;
@@ -365,21 +422,21 @@ void Renderer::load_background(const std::filesystem::path& path) {
     image.tiling = VK_IMAGE_TILING_OPTIMAL;
     image.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     image.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    check(vkCreateImage(device_, &image, nullptr, &background_));
+    check(vkCreateImage(device_, &image, nullptr, &texture.image));
     VkMemoryRequirements requirements;
-    vkGetImageMemoryRequirements(device_, background_, &requirements);
+    vkGetImageMemoryRequirements(device_, texture.image, &requirements);
     VkMemoryAllocateInfo allocation{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
     allocation.allocationSize = requirements.size;
     allocation.memoryTypeIndex =
         memory_type(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    check(vkAllocateMemory(device_, &allocation, nullptr, &background_memory_));
-    check(vkBindImageMemory(device_, background_, background_memory_, 0));
+    check(vkAllocateMemory(device_, &allocation, nullptr, &texture.memory));
+    check(vkBindImageMemory(device_, texture.image, texture.memory, 0));
     VkImageViewCreateInfo view{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    view.image = background_;
+    view.image = texture.image;
     view.viewType = VK_IMAGE_VIEW_TYPE_2D;
     view.format = image.format;
     view.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, level_count, 0, 1};
-    check(vkCreateImageView(device_, &view, nullptr, &background_view_));
+    check(vkCreateImageView(device_, &view, nullptr, &texture.view));
     VkSamplerCreateInfo sampler{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     sampler.magFilter = sampler.minFilter = VK_FILTER_LINEAR;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
@@ -388,12 +445,13 @@ void Renderer::load_background(const std::filesystem::path& path) {
     sampler.maxAnisotropy = background_anisotropy_;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler.addressModeV = sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    check(vkCreateSampler(device_, &sampler, nullptr, &background_sampler_));
+    check(vkCreateSampler(device_, &sampler, nullptr, &texture.sampler));
 
     auto staging = buffer(upload_bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
     try {
         memcpy(staging.mapped, mips.pixels.data() + upload_offset, upload_bytes);
         auto& frame = frames_[0];
+        check(vkResetCommandPool(device_, frame.pool, 0));
         VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         check(vkBeginCommandBuffer(frame.command, &begin));
@@ -402,7 +460,7 @@ void Renderer::load_background(const std::filesystem::path& path) {
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = background_;
+        barrier.image = texture.image;
         barrier.subresourceRange = view.subresourceRange;
         vkCmdPipelineBarrier(frame.command,
                              VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -425,7 +483,7 @@ void Renderer::load_background(const std::filesystem::path& path) {
         }
         vkCmdCopyBufferToImage(frame.command,
                                staging.handle,
-                               background_,
+                               texture.image,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                level_count,
                                copies.data());
@@ -456,6 +514,15 @@ void Renderer::load_background(const std::filesystem::path& path) {
         throw;
     }
     release(staging);
+}
+
+void Renderer::load_background(const std::filesystem::path& path) {
+    Texture texture;
+    load_texture(path, texture, true);
+    background_ = texture.image;
+    background_memory_ = texture.memory;
+    background_view_ = texture.view;
+    background_sampler_ = texture.sampler;
     VkDescriptorSetAllocateInfo set{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
     set.descriptorPool = descriptors_;
     set.descriptorSetCount = 1;
@@ -739,8 +806,9 @@ void Renderer::create_pipelines() {
         VkPipelineLayoutCreateInfo i{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         i.pushConstantRangeCount = 1;
         i.pPushConstantRanges = &pc;
-        VkDescriptorSetLayout layouts[] = {tone_set_layout_, atmosphere_set_layout_};
-        i.setLayoutCount = atmosphere ? 2 : 1;
+        VkDescriptorSetLayout layouts[] = {
+            tone_set_layout_, atmosphere_set_layout_, feature_set_layout_};
+        i.setLayoutCount = atmosphere ? 3 : 1;
         i.pSetLayouts = layouts;
         VkPipelineLayout l;
         check(vkCreatePipelineLayout(device_, &i, nullptr, &l));
@@ -844,13 +912,14 @@ void Renderer::create_pipelines() {
     tone_pipeline_ = pipeline("sky.vert", "tonemap.frag", tone_layout_, render_pass_, false);
 }
 
-void Renderer::render(const RenderScene& s,
+bool Renderer::render(const RenderScene& primary,
                       ImDrawData* ui,
-                      const std::filesystem::path& screenshot) {
+                      const std::filesystem::path& screenshot,
+                      const RenderScene* comparison) {
     int width, height;
     SDL_GetWindowSizeInPixels(window_, &width, &height);
     if (width <= 0 || height <= 0) {
-        return;
+        return false;
     }
     if (rebuild_ || uint32_t(width) != extent_.width || uint32_t(height) != extent_.height) {
         check(vkDeviceWaitIdle(device_));
@@ -862,103 +931,131 @@ void Renderer::render(const RenderScene& s,
     }
     auto& f = frames_[frame_];
     check(vkWaitForFences(device_, 1, &f.fence, VK_TRUE, UINT64_MAX));
-    const auto& atmosphere = *atmospheres_[s.atmosphere_preset];
-    const float twilight = float(photometry::twilight_gain(-asin(s.geometric_sun.z) / rad));
-    const float pollution = float(photometry::pollution_luminance(s.pollution));
-    const auto solar = atmosphere.irradiance(s.height_km, float(s.geometric_sun.z));
-    auto lunar = atmosphere.irradiance(s.height_km, float(s.geometric_moon.z));
-    constexpr float luminance[] = {.2126f, .7152f, .0722f};
-    const auto transmission = atmosphere.transmittance(s.height_km, float(s.geometric_moon.z));
-    const double visible_moon = std::clamp((s.geometric_moon.z + .0047) / .0094, 0., 1.);
-    double moon_transmission = 0, old_lunar_mean = 0;
-    for (int i = 0; i < 3; ++i) {
-        moon_transmission +=
-            luminance[i] * photometry::solar_rgb[i] * transmission[i] / photometry::solar_lux;
-        lunar[i] *= s.lunar_flux;
-        old_lunar_mean += luminance[i] * lunar[i] / pi;
-    }
-    double lunar_mean = 0;
-    // Deterministic cosine-weighted hemisphere integral of the same empirical
-    // lunar law used by the fragment shader. It is independent of the camera.
-    if (s.atmosphere && s.lunar_flux > 1e-10 && visible_moon > 0) {
-        for (int j = 0; j < 12; ++j) {
-            const double mu = (j + .5) / 12;
-            const auto t = atmosphere.transmittance(s.height_km, float(mu));
-            double view_t = 0;
-            for (int c = 0; c < 3; ++c) {
-                view_t += luminance[c] * photometry::solar_rgb[c] * t[c] / photometry::solar_lux;
-            }
-            for (int k = 0; k < 24; ++k) {
-                const double cosine =
-                    mu * s.geometric_moon.z +
-                    sqrt((1 - mu * mu) *
-                         std::max(0., 1 - s.geometric_moon.z * s.geometric_moon.z)) *
-                        cos(2 * pi * (k + .5) / 24);
-                lunar_mean += 2 * mu / (12 * 24) *
-                              photometry::lunar_sky_luminance(s.lunar_flux * photometry::solar_lux,
-                                                              acos(std::clamp(cosine, -1., 1.)),
-                                                              moon_transmission,
-                                                              view_t);
-            }
-        }
-    }
-    lunar_mean = std::lerp(old_lunar_mean, lunar_mean, visible_moon);
-    for (auto& c : lunar) {
-        c *= float(lunar_mean / std::max(1e-20, old_lunar_mean));
-    }
-    float adaptation = float(photometry::night_exposure_gain);
-    if (s.atmosphere && s.auto_exposure) {
-        const double pollution_mean_ratio = (1.5 + .5 * exp(-pi)) / (1 + 2 * exp(-pi));
-        double mean = photometry::night_floor + pollution * pollution_mean_ratio;
-        const double moon_illuminance =
-            s.lunar_flux * photometry::solar_lux * moon_transmission * visible_moon;
+    const int view_count = comparison ? 2 : 1;
+    for (int v = 0; v < view_count; ++v) {
+        const auto& s = v == 0 ? primary : *comparison;
+        const auto& atmosphere = *atmospheres_[s.atmosphere_preset];
+        const float twilight = float(photometry::twilight_gain(-asin(s.geometric_sun.z) / rad));
+        const float pollution = float(photometry::pollution_luminance(s.pollution));
+        const auto solar = atmosphere.irradiance(s.height_km, float(s.geometric_sun.z));
+        auto lunar = atmosphere.irradiance(s.height_km, float(s.geometric_moon.z));
+        constexpr float luminance[] = {.2126f, .7152f, .0722f};
+        const auto transmission = atmosphere.transmittance(s.height_km, float(s.geometric_moon.z));
+        const double visible_moon = std::clamp((s.geometric_moon.z + .0047) / .0094, 0., 1.);
+        double moon_transmission = 0, old_lunar_mean = 0;
         for (int i = 0; i < 3; ++i) {
-            mean += luminance[i] * (solar[i] * s.solar_flux * twilight + lunar[i]) / float(pi);
+            moon_transmission +=
+                luminance[i] * photometry::solar_rgb[i] * transmission[i] / photometry::solar_lux;
+            lunar[i] *= s.lunar_flux;
+            old_lunar_mean += luminance[i] * lunar[i] / pi;
         }
-        adaptation = float(photometry::exposure_gain(mean, moon_illuminance));
+        double lunar_mean = 0;
+        // Deterministic cosine-weighted hemisphere integral of the same empirical
+        // lunar law used by the fragment shader. It is independent of the camera.
+        if (s.atmosphere && s.lunar_flux > 1e-10 && visible_moon > 0) {
+            for (int j = 0; j < 12; ++j) {
+                const double mu = (j + .5) / 12;
+                const auto t = atmosphere.transmittance(s.height_km, float(mu));
+                double view_t = 0;
+                for (int c = 0; c < 3; ++c) {
+                    view_t +=
+                        luminance[c] * photometry::solar_rgb[c] * t[c] / photometry::solar_lux;
+                }
+                for (int k = 0; k < 24; ++k) {
+                    const double cosine =
+                        mu * s.geometric_moon.z +
+                        sqrt((1 - mu * mu) *
+                             std::max(0., 1 - s.geometric_moon.z * s.geometric_moon.z)) *
+                            cos(2 * pi * (k + .5) / 24);
+                    lunar_mean +=
+                        2 * mu / (12 * 24) *
+                        photometry::lunar_sky_luminance(s.lunar_flux * photometry::solar_lux,
+                                                        acos(std::clamp(cosine, -1., 1.)),
+                                                        moon_transmission,
+                                                        view_t);
+                }
+            }
+        }
+        lunar_mean = std::lerp(old_lunar_mean, lunar_mean, visible_moon);
+        for (auto& c : lunar) {
+            c *= float(lunar_mean / std::max(1e-20, old_lunar_mean));
+        }
+        float adaptation = float(photometry::night_exposure_gain);
+        if (s.atmosphere && s.auto_exposure) {
+            const double pollution_mean_ratio = (1.5 + .5 * exp(-pi)) / (1 + 2 * exp(-pi));
+            double mean = photometry::night_floor + pollution * pollution_mean_ratio;
+            const double moon_illuminance =
+                s.lunar_flux * photometry::solar_lux * moon_transmission * visible_moon;
+            for (int i = 0; i < 3; ++i) {
+                mean += luminance[i] * (solar[i] * s.solar_flux * twilight + lunar[i]) / float(pi);
+            }
+            adaptation = float(photometry::exposure_gain(mean, moon_illuminance));
+        }
+        if (v == 0) {
+            effective_exposure_ = adaptation * s.exposure;
+        }
+        const float atmosphere_uniform[] = {float(s.geometric_sun.x),
+                                            float(s.geometric_sun.y),
+                                            float(s.geometric_sun.z),
+                                            s.solar_flux,
+                                            float(s.geometric_moon.x),
+                                            float(s.geometric_moon.y),
+                                            float(s.geometric_moon.z),
+                                            s.lunar_flux,
+                                            s.height_km,
+                                            float(s.atmosphere_preset),
+                                            s.auto_exposure ? 1.f : 0.f,
+                                            adaptation,
+                                            twilight,
+                                            float(photometry::night_floor),
+                                            pollution,
+                                            background_radiance_scale,
+                                            lunar[0],
+                                            lunar[1],
+                                            lunar[2],
+                                            0};
+        memcpy(f.atmosphere[v].mapped, atmosphere_uniform, sizeof(atmosphere_uniform));
+        std::array<float, 748> features{};
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                features[i * 4 + j] = float(s.lunar.fixed_from_enu.a[i][j]);
+            }
+            features[12 + i] = float(s.lunar.sun_km[i]);
+            features[16 + i] = float(s.lunar.earth_km[i]);
+        }
+        features[20] = s.moon_surface ? 1.f : 0.f;
+        features[21] = float(s.lunar.earthshine_lux);
+        features[24] = v ? float(extent_.width / 2) : 0.f;
+        std::copy(s.horizon.degrees.begin(), s.horizon.degrees.end(), features.begin() + 28);
+        memcpy(f.features[v].mapped, features.data(), sizeof(features));
     }
-    effective_exposure_ = adaptation * s.exposure;
-    const float atmosphere_uniform[] = {float(s.geometric_sun.x),
-                                        float(s.geometric_sun.y),
-                                        float(s.geometric_sun.z),
-                                        s.solar_flux,
-                                        float(s.geometric_moon.x),
-                                        float(s.geometric_moon.y),
-                                        float(s.geometric_moon.z),
-                                        s.lunar_flux,
-                                        s.height_km,
-                                        float(s.atmosphere_preset),
-                                        s.auto_exposure ? 1.f : 0.f,
-                                        adaptation,
-                                        twilight,
-                                        float(photometry::night_floor),
-                                        pollution,
-                                        background_radiance_scale,
-                                        lunar[0],
-                                        lunar[1],
-                                        lunar[2],
-                                        0};
-    memcpy(f.atmosphere.mapped, atmosphere_uniform, sizeof(atmosphere_uniform));
     uint32_t image;
     auto acquired =
         vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &image);
     if (acquired == VK_ERROR_OUT_OF_DATE_KHR) {
         rebuild_ = true;
-        return;
+        return false;
     }
     if (acquired == VK_SUBOPTIMAL_KHR) {
         rebuild_ = true;
     } else {
         check(acquired);
     }
-    VkDeviceSize bytes =
-        std::max(VkDeviceSize(48), VkDeviceSize(s.points.size() * sizeof(StarInstance)));
+    const size_t first_count = primary.points.size();
+    const size_t total_count = first_count + (comparison ? comparison->points.size() : 0);
+    const VkDeviceSize bytes =
+        std::max(VkDeviceSize(48), VkDeviceSize(total_count * sizeof(StarInstance)));
     if (bytes > f.instances.size) {
         release(f.instances);
         f.instances = buffer(bytes * 2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     }
-    if (!s.points.empty()) {
-        memcpy(f.instances.mapped, s.points.data(), s.points.size() * sizeof(StarInstance));
+    if (first_count) {
+        memcpy(f.instances.mapped, primary.points.data(), first_count * sizeof(StarInstance));
+    }
+    if (comparison && !comparison->points.empty()) {
+        memcpy(static_cast<StarInstance*>(f.instances.mapped) + first_count,
+               comparison->points.data(),
+               comparison->points.size() * sizeof(StarInstance));
     }
     Buffer readback;
     if (!screenshot.empty()) {
@@ -983,74 +1080,102 @@ void Renderer::render(const RenderScene& s,
     pass.pClearValues = &clear;
     vkCmdBeginRenderPass(f.command, &pass, VK_SUBPASS_CONTENTS_INLINE);
 
-    struct Parameters {
-        float right[4], up[4], forward[4], sun[4], moon[4], options[4], viewport[4], galactic[4];
-    } p{};
+    for (int v = 0; v < view_count; ++v) {
+        const auto& s = v == 0 ? primary : *comparison;
+        const uint32_t origin = v ? extent_.width / 2 : 0;
+        const uint32_t view_width =
+            comparison ? (v ? extent_.width - origin : extent_.width / 2) : extent_.width;
+        vp = {float(origin), 0, float(view_width), float(extent_.height), 0, 1};
+        scissor = {{int32_t(origin), 0}, {view_width, extent_.height}};
+        vkCmdSetViewport(f.command, 0, 1, &vp);
+        vkCmdSetScissor(f.command, 0, 1, &scissor);
 
-    static_assert(sizeof(Parameters) == 128);
+        struct Parameters {
+            float right[4], up[4], forward[4], sun[4], moon[4], options[4], viewport[4],
+                galactic[4];
+        } p{};
 
-    auto copy = [](Vec3 v, float* a) {
-        a[0] = float(v.x);
-        a[1] = float(v.y);
-        a[2] = float(v.z);
-    };
-    copy(s.camera.right(), p.right);
-    p.right[3] = float(s.camera.pixels_per_radian());
-    copy(s.camera.up(), p.up);
-    p.up[3] = float(s.camera.fov / 2);
-    copy(s.camera.forward(), p.forward);
-    p.forward[3] = float(s.camera.projection);
-    copy(s.sun, p.sun);
-    p.sun[3] = s.atmosphere ? 1 : 0;
-    copy(s.moon, p.moon);
-    p.moon[3] = s.ground ? 1 : 0;
-    p.options[0] = s.pollution;
-    p.options[1] = s.moon_phase;
-    p.options[2] = s.milky_way ? 1 : 0;
-    p.options[3] = s.extinction;
-    std::copy(s.galactic_rotation.begin(), s.galactic_rotation.end(), p.galactic);
-    p.viewport[0] = float(s.camera.width);
-    p.viewport[1] = float(s.camera.height);
-    p.viewport[2] = float(extent_.width);
-    p.viewport[3] = float(extent_.height);
-    vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline_);
-    vkCmdBindDescriptorSets(f.command,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            sky_layout_,
-                            1,
-                            1,
-                            &f.atmosphere_set,
-                            0,
-                            nullptr);
-    vkCmdBindDescriptorSets(f.command,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            sky_layout_,
-                            0,
-                            1,
-                            &background_set_,
-                            0,
-                            nullptr);
-    vkCmdPushConstants(f.command, sky_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(p), &p);
-    vkCmdDraw(f.command, 3, 1, 0, 0);
-    if (!s.points.empty()) {
-        vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, stars_pipeline_);
+        static_assert(sizeof(Parameters) == 128);
+
+        auto copy = [](Vec3 v, float* a) {
+            a[0] = float(v.x);
+            a[1] = float(v.y);
+            a[2] = float(v.z);
+        };
+        copy(s.camera.right(), p.right);
+        p.right[3] = float(s.camera.pixels_per_radian());
+        copy(s.camera.up(), p.up);
+        p.up[3] = float(s.camera.fov / 2);
+        copy(s.camera.forward(), p.forward);
+        p.forward[3] = float(s.camera.projection);
+        copy(s.sun, p.sun);
+        p.sun[3] = s.atmosphere ? 1 : 0;
+        copy(s.moon, p.moon);
+        p.moon[3] = s.ground ? 1 : 0;
+        p.options[0] = s.pollution;
+        p.options[1] = s.moon_phase;
+        p.options[2] = s.milky_way ? 1 : 0;
+        p.options[3] = s.extinction;
+        std::copy(s.galactic_rotation.begin(), s.galactic_rotation.end(), p.galactic);
+        p.viewport[0] = float(s.camera.width);
+        p.viewport[1] = float(s.camera.height);
+        p.viewport[2] = vp.width;
+        p.viewport[3] = float(extent_.height);
+        vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, sky_pipeline_);
         vkCmdBindDescriptorSets(f.command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                stars_layout_,
+                                sky_layout_,
                                 1,
                                 1,
-                                &f.atmosphere_set,
+                                &f.atmosphere_set[v],
                                 0,
                                 nullptr);
-        VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(f.command, 0, 1, &f.instances.handle, &offset);
-        vkCmdPushConstants(f.command,
-                           stars_layout_,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           0,
-                           sizeof(p),
-                           &p);
-        vkCmdDraw(f.command, 6, uint32_t(s.points.size()), 0, 0);
+        vkCmdBindDescriptorSets(f.command,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                sky_layout_,
+                                0,
+                                1,
+                                &background_set_,
+                                0,
+                                nullptr);
+        vkCmdBindDescriptorSets(f.command,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                sky_layout_,
+                                2,
+                                1,
+                                &f.feature_set[v],
+                                0,
+                                nullptr);
+        vkCmdPushConstants(f.command, sky_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(p), &p);
+        vkCmdDraw(f.command, 3, 1, 0, 0);
+        if (!s.points.empty()) {
+            vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, stars_pipeline_);
+            vkCmdBindDescriptorSets(f.command,
+                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    stars_layout_,
+                                    1,
+                                    1,
+                                    &f.atmosphere_set[v],
+                                    0,
+                                    nullptr);
+            vkCmdBindDescriptorSets(f.command,
+                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    stars_layout_,
+                                    2,
+                                    1,
+                                    &f.feature_set[v],
+                                    0,
+                                    nullptr);
+            VkDeviceSize offset = v ? first_count * sizeof(StarInstance) : 0;
+            vkCmdBindVertexBuffers(f.command, 0, 1, &f.instances.handle, &offset);
+            vkCmdPushConstants(f.command,
+                               stars_layout_,
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                               0,
+                               sizeof(p),
+                               &p);
+            vkCmdDraw(f.command, 6, uint32_t(s.points.size()), 0, 0);
+        }
     }
     vkCmdEndRenderPass(f.command);
     // Make the HDR store visible before tone mapping. The explicit barrier is
@@ -1069,13 +1194,18 @@ void Renderer::render(const RenderScene& s,
                          nullptr,
                          0,
                          nullptr);
+    vp = {0, 0, float(extent_.width), float(extent_.height), 0, 1};
+    scissor = {{0, 0}, extent_};
+    vkCmdSetViewport(f.command, 0, 1, &vp);
+    vkCmdSetScissor(f.command, 0, 1, &scissor);
     pass.renderPass = render_pass_;
     pass.framebuffer = framebuffers_[image];
     vkCmdBeginRenderPass(f.command, &pass, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_pipeline_);
     vkCmdBindDescriptorSets(
         f.command, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_layout_, 0, 1, &f.tone_set, 0, nullptr);
-    vkCmdPushConstants(f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &s.exposure);
+    vkCmdPushConstants(
+        f.command, tone_layout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &primary.exposure);
     vkCmdDraw(f.command, 3, 1, 0, 0);
     if (ui) {
         ImGui_ImplVulkan_RenderDrawData(ui, f.command);
@@ -1173,6 +1303,7 @@ void Renderer::render(const RenderScene& s,
         }
     }
     frame_ = (frame_ + 1) % 2;
+    return true;
 }
 
 void Renderer::cleanup() {
@@ -1187,7 +1318,10 @@ void Renderer::cleanup() {
         destroy_swapchain();
         for (auto& f : frames_) {
             release(f.instances);
-            release(f.atmosphere);
+            for (int v = 0; v < 2; ++v) {
+                release(f.atmosphere[v]);
+                release(f.features[v]);
+            }
             if (f.acquired) {
                 vkDestroySemaphore(device_, f.acquired, nullptr);
             }
@@ -1222,6 +1356,23 @@ void Renderer::cleanup() {
         }
         if (background_memory_) {
             vkFreeMemory(device_, background_memory_, nullptr);
+        }
+        for (auto* t : {&moon_albedo_, &moon_height_}) {
+            if (t->sampler) {
+                vkDestroySampler(device_, t->sampler, nullptr);
+            }
+            if (t->view) {
+                vkDestroyImageView(device_, t->view, nullptr);
+            }
+            if (t->image) {
+                vkDestroyImage(device_, t->image, nullptr);
+            }
+            if (t->memory) {
+                vkFreeMemory(device_, t->memory, nullptr);
+            }
+        }
+        if (feature_set_layout_) {
+            vkDestroyDescriptorSetLayout(device_, feature_set_layout_, nullptr);
         }
         if (tone_set_layout_) {
             vkDestroyDescriptorSetLayout(device_, tone_set_layout_, nullptr);

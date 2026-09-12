@@ -50,6 +50,24 @@ Ephemeris::Ephemeris(const std::filesystem::path& root) {
             ++kernel_references[path];
             kernels_.push_back(path);
         }
+        for (const char* name :
+             {"pck00011.tpc", "moon_de440_250416.tf", "moon_pa_de440_200625.bpc"}) {
+            const auto path = std::filesystem::canonical(root / "moon" / name).string();
+            if (!kernel_references.contains(path)) {
+                furnsh_c(path.c_str());
+                spice_check();
+            }
+            ++kernel_references[path];
+            kernels_.push_back(path);
+        }
+        SPICEDOUBLE_CELL(coverage, 32);
+        const auto pck = (root / "moon/moon_pa_de440_200625.bpc").string();
+        pckcov_c(pck.c_str(), 31008, &coverage);
+        spice_check();
+        if (wncard_c(&coverage) != 1) {
+            throw std::runtime_error("Unexpected lunar orientation coverage");
+        }
+        wnfetd_c(&coverage, 0, &lunar_start_, &lunar_end_);
     } catch (...) {
         for (auto& p : kernels_) {
             release_kernel(p);
@@ -72,6 +90,16 @@ State Ephemeris::state(int body, JulianDate jd) const {
     spkez_c(body, et, "J2000", "NONE", 0, pv, &lt);
     spice_check();
     return {{pv[0], pv[1], pv[2]}, {pv[3], pv[4], pv[5]}};
+}
+
+Mat3 Ephemeris::moon_orientation(JulianDate tdb, bool& precise) const {
+    std::lock_guard guard(spice_mutex);
+    const double et = tdb.since_j2000() * 86400;
+    precise = et >= lunar_start_ && et <= lunar_end_;
+    Mat3 result;
+    pxform_c("J2000", precise ? "MOON_ME" : "IAU_MOON", et, result.a);
+    spice_check();
+    return result;
 }
 
 SkyEngine::SkyEngine(const std::filesystem::path& p)
@@ -174,7 +202,8 @@ std::string quality_text(const Object& o) {
 std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
                                                 uint64_t generation,
                                                 const std::atomic<uint64_t>* latest,
-                                                Scope scope) const {
+                                                Scope scope,
+                                                std::optional<uint32_t> only_star) const {
     auto start = std::chrono::steady_clock::now();
     validate(s);
     auto out = std::make_shared<SkySnapshot>();
@@ -264,6 +293,7 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
         o.angular_radius = asin(std::clamp(b.radius / distance, 0., 1.));
         o.color = b.color;
         Vec3 illumination = unit(sun.position - target.position);
+        o.illumination = out->celestial_to_enu * illumination;
         double ca = std::clamp(dot(illumination, unit(observer - target.position)), -1., 1.);
         double phaseangle = acos(ca);
         o.phase = b.id == 10 ? 1 : (1 + ca) / 2;
@@ -286,6 +316,49 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
                 o.color[i] = float(photometry::solar_rgb[i] / photometry::solar_lux);
             }
         }
+        o.unocculted_lux = o.illuminance_lux;
+        if (b.id == 301) {
+            auto fixed = ephemeris_.moon_orientation(t.tdb.add_seconds(-light),
+                                                     out->lunar.precise_orientation);
+            out->lunar.fixed_from_enu = fixed * out->celestial_to_enu.transpose();
+            // Sunlight and the occulting Earth are seen from the Moon at the
+            // surface emission epoch, before that light travels to our observer.
+            // Earth's barycentric motion over the extra light time matters for
+            // eclipse contacts, even though it barely changes ordinary phases.
+            const auto surface_time = t.tdb.add_seconds(-light);
+            const auto shadow_earth = ephemeris_.state(
+                399, surface_time.add_seconds(-norm(earth.position - target.position) / c_kms));
+            const auto lighting_sun = ephemeris_.state(
+                10, surface_time.add_seconds(-norm(sun.position - target.position) / c_kms));
+            out->lunar.sun_km = fixed * (lighting_sun.position - target.position);
+            out->lunar.earth_km = fixed * (shadow_earth.position - target.position);
+            const Vec3 facing = unit(out->lunar.earth_km);
+            const Vec3 axis = unit(cross(facing, Vec3{0, 0, 1}));
+            const Vec3 up = cross(axis, facing);
+            double visibility = 0;
+            for (int i = 0; i < 128; ++i) {
+                const double r = sqrt((i + .5) / 128.);
+                const double phi = i * 2.399963229728653;
+                const Vec3 surface =
+                    (axis * (r * cos(phi)) + up * (r * sin(phi)) + facing * sqrt(1 - r * r)) *
+                    1737.4;
+                visibility +=
+                    lunar_sunlight(out->lunar.sun_km - surface, out->lunar.earth_km - surface);
+            }
+            out->lunar.solar_visibility = visibility / 128.;
+            // Approximate residual refracted red sunlight in the umbra. Its
+            // actual strength/colour depends on Earth's atmosphere.
+            o.illuminance_lux *=
+                out->lunar.solar_visibility + .001 * (1 - out->lunar.solar_visibility);
+            const double earth_phase = (1 + dot(unit(target.position - earth.position),
+                                                unit(sun.position - earth.position))) /
+                                       2;
+            out->lunar.earthshine_lux = s.earthshine
+                                            ? photometry::solar_lux * .3 *
+                                                  pow(6378.137 / norm(out->lunar.earth_km), 2) *
+                                                  photometry::lambert_phase(earth_phase)
+                                            : 0;
+        }
         Vec3 lightenu = out->celestial_to_enu * illumination;
         Vec3 east = unit(cross({0, 0, 1}, o.geometric));
         Vec3 north = cross(o.geometric, east);
@@ -299,6 +372,12 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
             out->moon_phase = o.phase;
         }
     }
+    const auto& solar = out->bodies[0];
+    const auto& moon = out->bodies[1];
+    out->solar_visibility = 1 - disc_overlap(solar.angular_radius,
+                                             moon.angular_radius,
+                                             angle(solar.observed, moon.observed));
+    out->bodies[0].illuminance_lux *= out->solar_visibility;
     if (scope == Scope::SolarSystem) {
         out->compute_ms =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
@@ -308,11 +387,16 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
     out->stars.reserve(30000);
     double tcb1, tcb2;
     eraTdbtcb(t.tdb.day, t.tdb.fraction, &tcb1, &tcb2);
-    for (size_t i = 0; i < catalog.stars.size(); i++) {
+    if (only_star && *only_star >= catalog.stars.size()) {
+        throw std::out_of_range("Invalid catalogue index");
+    }
+    for (size_t i = only_star.value_or(0), end = only_star ? i + 1 : catalog.stars.size(); i < end;
+         i++) {
         if ((i & 4095) == 0 && latest && latest->load() != generation) {
             return {};
         }
         const auto& star = catalog.stars[i];
+        const bool guide = s.constellations && catalog.constellation_member[i];
         double days = (star.flags & Gaia) ? (tcb1 - 2451545.) + tcb2 : t.tdb.since_j2000();
         double years = 2000 + days / 365.25 - star.epoch;
         double plx = star.flags & DistanceUnknown ? 0 : star.parallax;
@@ -320,7 +404,7 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
         // Conservative nominal lower bound: radial displacement alone can only
         // underestimate total distance. Do not cull by original sky tile/position.
         double lower = plx > 0 ? abs(1 + star.rv * years * 31557600. * plx * arcsec / au_km) : 1;
-        if (mag + 5 * log10(std::max(1e-12, lower)) > s.magnitude + .4) {
+        if (!only_star && !guide && mag + 5 * log10(std::max(1e-12, lower)) > s.magnitude + .4) {
             continue;
         }
         double ra2 = star.ra, de2 = star.dec, pmr = 0, pmd = 0, px2 = plx, rv2 = star.rv;
@@ -359,7 +443,7 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
             ra2 = atan2(u.y, u.x);
             de2 = asin(u.z);
         }
-        if (mag > s.magnitude + .4) {
+        if (!only_star && !guide && mag > s.magnitude + .4) {
             continue;
         }
         double rai, dei;
@@ -387,6 +471,9 @@ std::shared_ptr<SkySnapshot> SkyEngine::compute(const Scenario& s,
                                 1000.;
         if (o.magnitude <= 2.7 && !((o.flags & Gaia) && !o.hip)) {
             out->label_stars.push_back(out->stars.size());
+        }
+        if (guide) {
+            out->guide_stars.emplace(uint32_t(i), o);
         }
         out->stars.push_back(o);
     }
@@ -424,7 +511,8 @@ std::optional<Scenario> SkyEngine::next_moon_view(const Scenario& initial,
         }
         auto sky = compute(candidate, generation, latest, Scope::SolarSystem);
         if (sky->moon_altitude >= 8 * rad && sky->sun_altitude <= -6 * rad &&
-            sky->moon_phase >= .02) {
+            sky->moon_phase >= .02 &&
+            (!initial.ground || initial.horizon.visible(sky->bodies[1].observed))) {
             const auto moon = std::find_if(sky->bodies.begin(), sky->bodies.end(), [](auto& body) {
                 return body.body == 301;
             });

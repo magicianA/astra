@@ -1,5 +1,6 @@
 #pragma once
 #include "camera.hpp"
+#include "horizon.hpp"
 #include "time.hpp"
 #include <filesystem>
 
@@ -14,11 +15,19 @@ struct Scenario {
     bool atmosphere = true, ground = true, grid = false, labels = true;
     ProjectionKind projection = ProjectionKind::Perspective;
     bool milky_way = true;
+    bool moon_surface = true, earthshine = true, constellations = false,
+         constellation_labels = true;
+    bool compare = false;
+    int comparison_year = -3000;
+    Horizon horizon;
     int atmosphere_preset = 0;
     bool auto_exposure = true;
     double pressure = 1013.25, temperature = 15, extinction = .2, exposure = 1,
            light_pollution = .08;
     std::string location_name = "北京 Beijing";
+    // Loading legacy settings is an explicit migration, not exact reproduction.
+    std::vector<std::string> migrations;
+    bool operator==(const Scenario&) const = default;
 };
 
 void validate(const Scenario&);

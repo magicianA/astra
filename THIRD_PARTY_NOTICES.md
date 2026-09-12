@@ -52,3 +52,26 @@ relations and nine tabulated photopic samples from Masana et al. (2021),
 DOI [10.1093/mnras/staa4005](https://doi.org/10.1093/mnras/staa4005).
 The project implements its own calibration code; no author software is bundled.
 See `docs/PHOTOMETRY.md` and `data/photometry/gambons-table3.json` for sources and limits.
+
+## Lunar surface and constellation figures
+
+NASA SVS [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/): LROC WAC colour map and
+LOLA elevation, NASA's Scientific Visualization Studio / Ernie Wright and the
+LRO LROC/LOLA teams. Colour is adjusted for visualization. The application stores
+an RGBA colour conversion and a resampled, packed 16-bit height texture. See
+[NASA media guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/)
+and `data/moon/manifest.json` for source URLs and checksums. No NASA endorsement is implied.
+
+Lunar orientation: NASA/JPL/NAIF DE440 binary PCK, lunar frame kernel and generic
+PCK. Their original embedded comments are retained in `data/moon/`. Source and
+runtime hashes are recorded in the lunar manifest; NAIF rules continue to apply.
+
+Western constellation line figures and names: Stellarium skycultures contributors,
+commit `014fbb5e59233d133c22f9811af96b67d05a95c9`. The upstream description licenses
+text and data under **CC BY-SA**. Astra extracts HIP line vertices and names and
+removes line-style tokens; illustrations are not included. Original credits and
+licensing text are preserved in `data/skycultures/LICENSE.md`. The derived figure
+data remain under the upstream CC BY-SA terms, independently of application code.
+
+Video export invokes a user-installed FFmpeg executable. FFmpeg is not bundled or
+relicensed by this project; its own build and codec licenses apply.

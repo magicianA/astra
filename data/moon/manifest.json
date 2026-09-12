@@ -1,0 +1,51 @@
+{
+  "id": "lro-lunar-v1",
+  "source": "NASA SVS / LROC WAC / LOLA; NAIF DE440 PCK",
+  "credits": "NASA's Scientific Visualization Studio; Ernie Wright; LRO LROC/LOLA teams; NASA/JPL/NAIF",
+  "sources": {
+    "lroc_color_poles_4k.tif": {
+      "url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_poles_4k.tif",
+      "sha256": "918649a7f8ed2f1329b2cd95bb0d25483befdcb60ae1a66db681a637cc21344f"
+    },
+    "ldem_16_uint.tif": {
+      "url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_16_uint.tif",
+      "sha256": "45a2b32d56e81ed30db07fead8abc842b249b6511219d9ca2c53f81bc2dc5d62"
+    },
+    "pck00011.tpc": {
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc",
+      "sha256": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1"
+    },
+    "moon_de440_250416.tf": {
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/fk/satellites/moon_de440_250416.tf",
+      "sha256": "a47c71e9c9f33796bdafb2c9d69a7ee447b6016ecad80f71cd6f3e479f9cf768"
+    },
+    "moon_pa_de440_200625.bpc": {
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc",
+      "sha256": "60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f"
+    },
+    "moon_pa_de440_200625.cmt": {
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.cmt",
+      "sha256": "97d3bb1e75e7807a5e0b76f836a2d1d192e0d5bde0c0a87979b4c13255aef8c1"
+    }
+  },
+  "source_sha256": {
+    "lroc_color_poles_4k.tif": "918649a7f8ed2f1329b2cd95bb0d25483befdcb60ae1a66db681a637cc21344f",
+    "ldem_16_uint.tif": "45a2b32d56e81ed30db07fead8abc842b249b6511219d9ca2c53f81bc2dc5d62",
+    "pck00011.tpc": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1",
+    "moon_de440_250416.tf": "a47c71e9c9f33796bdafb2c9d69a7ee447b6016ecad80f71cd6f3e479f9cf768",
+    "moon_pa_de440_200625.bpc": "60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f",
+    "moon_pa_de440_200625.cmt": "97d3bb1e75e7807a5e0b76f836a2d1d192e0d5bde0c0a87979b4c13255aef8c1"
+  },
+  "orientation": "MOON_ME_DE440_ME421 within PCK coverage; IAU_MOON approximate elsewhere",
+  "limits": "SVS colour map is adjusted for visualization, not absolute albedo; terrain shadows sampled at 4K; no historical terrain evolution",
+  "height_decode_km": "(256*R_byte + G_byte)*0.0005 - 10",
+  "runtime_sha256": {
+    "moon/albedo.png": "27adf2ab811b746fd4395ffa65a08fa8015b9a162123e15db9575fdbc03813a5",
+    "moon/height.png": "95465038527d9c1f8610a4dcc1e7aec634293667944c7c14eb7008866deb72ba",
+    "moon/moon_de440_250416.tf": "a47c71e9c9f33796bdafb2c9d69a7ee447b6016ecad80f71cd6f3e479f9cf768",
+    "moon/moon_pa_de440_200625.bpc": "60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f",
+    "moon/moon_pa_de440_200625.cmt": "97d3bb1e75e7807a5e0b76f836a2d1d192e0d5bde0c0a87979b4c13255aef8c1",
+    "moon/pck00011.tpc": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1"
+  },
+  "albedo_normalization": "Divide linear RGB by 0.21012569, the near-side full-phase luminance-weighted map mean"
+}

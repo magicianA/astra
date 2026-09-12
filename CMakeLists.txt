@@ -60,6 +60,10 @@ add_library(
     src/background.cpp
     src/image_mips.cpp
     src/photometry.cpp
+    src/events.cpp
+    src/eclipse.cpp
+    src/horizon.cpp
+    src/render_scene.cpp
     src/i18n.cpp
 )
 target_include_directories(
@@ -122,7 +126,15 @@ if(ASTRA_BUILD_APP)
     target_include_directories(imgui PUBLIC "${IMGUI_ROOT}" "${IMGUI_ROOT}/backends")
     target_link_libraries(imgui PUBLIC SDL3::SDL3 Vulkan::Vulkan)
     add_executable(
-        astra MACOSX_BUNDLE src/main.cpp src/app.cpp src/ui.cpp src/text.cpp src/renderer.cpp
+        astra MACOSX_BUNDLE
+        src/main.cpp
+        src/app.cpp
+        src/ui.cpp
+        src/explore.cpp
+        src/sequence.cpp
+        src/recording.cpp
+        src/text.cpp
+        src/renderer.cpp
     )
     target_link_libraries(astra PRIVATE astro_core imgui PNG::PNG astra_atmosphere_gpu)
     target_compile_definitions(astra PRIVATE ASTRA_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders")
@@ -159,8 +171,10 @@ if(ASTRA_BUILD_APP)
                 "${GLSLANG_VALIDATOR}" -V --target-env vulkan1.2
                 "${CMAKE_SOURCE_DIR}/shaders/${shader}" -o
                 "${CMAKE_BINARY_DIR}/shaders/${shader}.spv"
-            DEPENDS "${CMAKE_SOURCE_DIR}/shaders/atmosphere_render.glsl"
-                    "${CMAKE_SOURCE_DIR}/shaders/${shader}" "${CMAKE_SOURCE_DIR}/shaders/scene.glsl"
+            DEPENDS "${CMAKE_SOURCE_DIR}/shaders/features.glsl"
+                    "${CMAKE_SOURCE_DIR}/shaders/atmosphere_render.glsl"
+                    "${CMAKE_SOURCE_DIR}/shaders/${shader}"
+                    "${CMAKE_SOURCE_DIR}/shaders/scene.glsl"
                     ${ATMOSPHERE_SOURCES}
             VERBATIM
         )
@@ -177,6 +191,9 @@ add_executable(astro_tests tests/core_tests.cpp)
 target_include_directories(astro_tests PRIVATE "${CSPICE_INCLUDE}")
 target_link_libraries(astro_tests PRIVATE astro_core "${CSPICE_LIBRARY}")
 add_test(NAME core COMMAND astro_tests "${CMAKE_SOURCE_DIR}/data")
+add_executable(exploration_tests tests/exploration_tests.cpp)
+target_link_libraries(exploration_tests PRIVATE astro_core)
+add_test(NAME exploration COMMAND exploration_tests "${CMAKE_SOURCE_DIR}/data")
 add_executable(camera_tests tests/camera_tests.cpp)
 target_link_libraries(camera_tests PRIVATE astro_core)
 add_test(NAME camera_drag COMMAND camera_tests)
@@ -190,6 +207,9 @@ add_executable(i18n_tests tests/i18n_tests.cpp)
 target_link_libraries(i18n_tests PRIVATE astro_core)
 add_test(NAME i18n COMMAND i18n_tests)
 if(ASTRA_BUILD_APP)
+    add_executable(sequence_tests tests/sequence_tests.cpp src/sequence.cpp src/recording.cpp)
+    target_link_libraries(sequence_tests PRIVATE astro_core PNG::PNG SDL3::SDL3)
+    add_test(NAME sequence_export COMMAND sequence_tests)
     add_executable(text_tests tests/text_tests.cpp src/text.cpp)
     target_include_directories(text_tests PRIVATE include)
     target_link_libraries(text_tests PRIVATE imgui)

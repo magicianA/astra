@@ -45,7 +45,7 @@ ScreenPoint Camera::project(Vec3 v) const {
     return prepare().project(v);
 }
 
-ScreenPoint Projection::project(Vec3 v) const {
+ScreenPoint Projection::project(Vec3 v, double angular_radius) const {
     double x = dot(v, right), y = dot(v, up), z = dot(v, forward);
     if (kind == ProjectionKind::Perspective) {
         if (z <= 0) {
@@ -64,7 +64,7 @@ ScreenPoint Projection::project(Vec3 v) const {
         y *= 2 * scale / denominator;
     } else {
         double theta = atan2(hypot(x, y), z), r = hypot(x, y);
-        if (theta > half_fov) {
+        if (theta > half_fov + angular_radius) {
             return {};
         }
         if (r > 1e-15) {
@@ -76,7 +76,12 @@ ScreenPoint Projection::project(Vec3 v) const {
     }
     x += width / 2;
     y = height / 2 - y;
-    return {x, y, x >= -30 && y >= -30 && x <= width + 30 && y <= height + 30};
+    // Use the disc's angular extent, not a fixed point-sprite margin. Evaluate
+    // at the far limb for a conservative bound under non-linear projections.
+    const double theta = atan(hypot(x - width / 2, y - height / 2) / scale);
+    const double margin =
+        30 + angular_radius * scale / pow(std::max(.01, cos(theta + angular_radius)), 2);
+    return {x, y, x >= -margin && y >= -margin && x <= width + margin && y <= height + margin};
 }
 
 Vec3 Camera::unproject(double x, double y) const {

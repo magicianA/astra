@@ -59,6 +59,11 @@ def package(build, destination):
     for name, expected in atmosphere["runtime_sha256"].items():
         if digest(ROOT / "data" / name) != expected:
             raise RuntimeError(f"Atmosphere checksum differs from the manifest: {name}")
+    for folder in ("moon", "skycultures"):
+        extra = json.loads((ROOT / "data" / folder / "manifest.json").read_text())
+        for name, expected in extra["runtime_sha256"].items():
+            if digest(ROOT / "data" / name) != expected:
+                raise RuntimeError(f"Exploration asset checksum mismatch: {name}")
     if destination.exists():
         if destination.name != "Astra.app" or destination.parent != ROOT / "dist":
             raise RuntimeError(
@@ -147,6 +152,10 @@ def package(build, destination):
         "kernels/de441_part-2.bsp",
     ]:
         copy_file(ROOT / "data" / relative, resources / "data" / relative)
+    for folder in ("moon", "skycultures"):
+        shutil.copytree(ROOT / "data" / folder, resources / "data" / folder, dirs_exist_ok=True)
+    copy_file(ROOT / "docs/EXPLORATION.md", resources / "EXPLORATION.md")
+    shutil.copytree(ROOT / "examples", resources / "examples", dirs_exist_ok=True)
     shutil.copytree(build / "shaders", resources / "shaders", dirs_exist_ok=True)
     copy_file(ROOT / "THIRD_PARTY_NOTICES.md", resources / "THIRD_PARTY_NOTICES.md")
     copy_file(ROOT / "docs/PHOTOMETRY.md", resources / "PHOTOMETRY.md")

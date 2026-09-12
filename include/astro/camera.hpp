@@ -48,7 +48,7 @@ struct Projection {
     Vec3 right, up, forward;
     double scale, width, height, half_fov;
     ProjectionKind kind;
-    ScreenPoint project(Vec3 direction) const;
+    ScreenPoint project(Vec3 direction, double angular_radius = 0) const;
     // Cone enclosing the viewport and the point-sprite culling margin.
     double corner_angle() const;
     // Largest local angular scale, for resolved body sizes and their labels.

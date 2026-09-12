@@ -34,7 +34,29 @@ int main(int argc, char** argv) {
                 }
                 return std::string(argv[++i]);
             };
-            if (arg == "--data") {
+            auto& sequence = options.sequence;
+            auto ensure_sequence = [&]() -> SequenceRequest& {
+                if (!sequence) {
+                    sequence.emplace();
+                }
+                return *sequence;
+            };
+            if (arg == "--sequence") {
+                ensure_sequence().directory = value();
+            } else if (arg == "--steps") {
+                ensure_sequence().frames = std::stoi(value());
+            } else if (arg == "--step") {
+                ensure_sequence().step_seconds = std::stod(value());
+            } else if (arg == "--fps") {
+                ensure_sequence().fps = std::stoi(value());
+            } else if (arg == "--no-video") {
+                ensure_sequence().video = false;
+            } else if (arg == "--trails") {
+                ensure_sequence().trails = true;
+            } else if (arg == "--camera-end") {
+                ensure_sequence().camera_end = load_scenario(value());
+                ensure_sequence().camera_path = true;
+            } else if (arg == "--data") {
                 options.data = value();
             } else if (arg == "--shaders") {
                 options.shaders = value();
@@ -80,11 +102,24 @@ int main(int argc, char** argv) {
             } else if (arg == "--help") {
                 std::cout << "Astra: --data DIR --scenario FILE --date YEAR-MM-DDTHH:MM:SS --year "
                              "YEAR --validation --frames N --play-speed RATE --screenshot FILE.png "
-                             "--hide-ui --smoke --language en|zh-CN\n";
+                             "--hide-ui --smoke --language en|zh-CN\n"
+                             "Sequence: --sequence EMPTY_DIR --steps N --step SECONDS --fps N "
+                             "--no-video --trails --camera-end SCENE.json\n";
                 return 0;
             } else {
                 throw std::invalid_argument("Unknown argument: " + arg);
             }
+        }
+        if (options.sequence) {
+            validate_sequence(*options.sequence);
+            if (options.smoke || options.frames || options.playback_speed ||
+                !options.screenshot.empty()) {
+                throw std::invalid_argument("Sequence export cannot be combined with smoke, "
+                                            "frames, playback or screenshot options");
+            }
+        }
+        for (const auto& migration : options.scenario.migrations) {
+            std::cerr << "Scene migration: " << migration << '\n';
         }
         return run_app(options);
     } catch (const std::exception& e) {

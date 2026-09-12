@@ -1,6 +1,8 @@
 #include "astro/catalog.hpp"
 #include "json.hpp"
 #include <bit>
+#include <cctype>
+#include <charconv>
 #include <cstring>
 #include <fstream>
 #include <stdexcept>
@@ -37,6 +39,106 @@ Catalog::Catalog(const std::filesystem::path& root) {
         throw std::runtime_error("Star pack manifest missing");
     }
     data_id = nlohmann::json::parse(manifest).at("data_id");
+    id_order_.reserve(stars.size());
+    for (uint32_t i = 0; i < stars.size(); ++i) {
+        const auto& star = stars[i];
+        if (star.flags & Gaia) {
+            id_order_.push_back(i);
+        }
+        if (star.hip) {
+            hip_order_.emplace_back(star.hip, i);
+        }
+        if (auto found = names_.find(star.hip); found != names_.end()) {
+            auto text = found->second;
+            std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+                return c < 128 ? char(std::tolower(c)) : char(c);
+            });
+            search_names_.emplace_back(std::move(text), i);
+        }
+    }
+    std::sort(id_order_.begin(), id_order_.end(), [&](uint32_t a, uint32_t b) {
+        return stars[a].id < stars[b].id;
+    });
+    std::sort(hip_order_.begin(), hip_order_.end());
+    constellation_member.resize(stars.size());
+    std::ifstream figures(root / "skycultures/western.json");
+    if (!figures) {
+        throw std::runtime_error("Missing constellation data; run scripts/prepare_exploration.py");
+    }
+    const auto figure_data = nlohmann::json::parse(figures);
+    for (const auto& item : figure_data.at("figures")) {
+        Constellation figure;
+        figure.id = item.at("id");
+        figure.name = item.at("name");
+        for (const auto& line : item.at("lines")) {
+            for (size_t i = 1; i < line.size(); ++i) {
+                auto a = hip_index(line[i - 1].get<uint32_t>());
+                auto b = hip_index(line[i].get<uint32_t>());
+                if (a && b) {
+                    constellation_member[*a] = constellation_member[*b] = true;
+                    figure.segments.push_back({*a, *b});
+                }
+            }
+        }
+        constellations.push_back(std::move(figure));
+    }
+}
+
+std::optional<uint32_t> Catalog::hip_index(uint32_t hip) const {
+    auto it = std::lower_bound(hip_order_.begin(), hip_order_.end(), std::pair{hip, uint32_t(0)});
+    return it != hip_order_.end() && it->first == hip ? std::optional(it->second) : std::nullopt;
+}
+
+std::vector<uint32_t> Catalog::search(std::string query, size_t limit) const {
+    std::vector<uint32_t> result;
+    if (!limit || query.empty()) {
+        return result;
+    }
+    std::transform(query.begin(), query.end(), query.begin(), [](unsigned char c) {
+        return c < 128 ? char(std::tolower(c)) : char(c);
+    });
+    const auto first = query.find_first_not_of(" \t");
+    if (first == std::string::npos) {
+        return result;
+    }
+    query = query.substr(first, query.find_last_not_of(" \t") - first + 1);
+    auto digits = query;
+    const bool gaia = digits.starts_with("gaia");
+    for (const auto prefix : {"gaia dr3", "gaia", "hip"}) {
+        if (digits.starts_with(prefix)) {
+            digits.erase(0, std::string_view(prefix).size());
+            break;
+        }
+    }
+    digits.erase(0, std::min(digits.find_first_not_of(' '), digits.size()));
+    uint64_t number{};
+    const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), number);
+    if (error == std::errc{} && end == digits.data() + digits.size()) {
+        if (!gaia && number <= UINT32_MAX) {
+            if (auto index = hip_index(uint32_t(number))) {
+                result.push_back(*index);
+            }
+        }
+        if (result.empty()) {
+            auto it = std::lower_bound(
+                id_order_.begin(), id_order_.end(), number, [&](uint32_t i, uint64_t id) {
+                    return stars[i].id < id;
+                });
+            if (it != id_order_.end() && stars[*it].id == number) {
+                result.push_back(*it);
+            }
+        }
+        return result;
+    }
+    for (const auto& [name, index] : search_names_) {
+        if (name.find(query) != std::string::npos) {
+            result.push_back(index);
+            if (result.size() == limit) {
+                break;
+            }
+        }
+    }
+    return result;
 }
 
 std::string Catalog::name(const Star& s) const {

@@ -1,13 +1,15 @@
 #pragma once
 
+#include "explore.hpp"
 #include "i18n.hpp"
 #include "sky.hpp"
 #include <imgui.h>
 
 namespace astro {
-enum class UiPanel { None, Location, Time, Display, Search };
+enum class UiPanel { None, Location, Time, Display, Search, Explore };
 
 struct UiState {
+    std::shared_ptr<Exploration> exploration = std::make_shared<Exploration>();
     Language language = Language::English;
     UiPanel panel = UiPanel::None;
     bool visible = true, playing = false, track = false, selected_body = false;
@@ -16,8 +18,15 @@ struct UiState {
     double speed = 60;
     int rate = 1;
     char search[96]{};
+    std::string search_query;
+    const Catalog* search_catalog = nullptr;
+    std::vector<uint32_t> search_matches;
     std::string notice;
     std::filesystem::path pending_shot;
+
+    ~UiState() {
+        exploration->cancelled->store(true);
+    }
 };
 
 struct UiFrame {
@@ -29,6 +38,7 @@ struct UiFrame {
     bool busy;
     ImFont* title;
     const SkySnapshot* stars;
+    std::shared_ptr<SkyEngine> shared_engine;
 };
 
 struct UiActions {

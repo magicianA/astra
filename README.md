@@ -33,6 +33,16 @@ Year 0 is 1 BCE; year −3000 is 3001 BCE. Historical and future dates use UT1, 
 or local mean solar time. UTC is available only within the modern interval supported
 by the leap-second and Earth-orientation data.
 
+## New exploration tools
+
+The **Explore** button opens lunar surface detail, 88 constellation figures, a
+simultaneous two-epoch view, a 24-hour observing planner, imported horizon profiles,
+fixed-step video / star-trail export, and eclipse / occultation / close-approach search.
+Start with `examples/moon-detail.json`, `examples/epoch-comparison.json`,
+`examples/mountain-sky.json`, or `examples/lunar-eclipse.json`.
+[Usage, data sources and accuracy limits](docs/EXPLORATION.md) describe each tool.
+MP4 export requires a separately installed FFmpeg; PNG and trail exports work without it.
+
 ## Platform status
 
 - **macOS:** tested on Apple M4 Pro, arm64, macOS 26.4.1. The current local package's
@@ -99,6 +109,7 @@ download the source data and regenerate the catalogue, CIO table, and Milky Way 
 python3 scripts/bootstrap.py --all
 python3 -m pip install Pillow==11.3.0 numpy==2.0.2 opencv-python-headless==4.13.0.92
 python3 scripts/prepare_background.py
+python3 scripts/prepare_exploration.py
 
 build/astra_cli --generate-cio data/time/cio.bin 4
 python3 scripts/fetch_gaia.py
@@ -123,7 +134,7 @@ For a one-time launch override, use `--language en` or `--language zh-CN`; this 
 overwrite your saved preference unless you change the language in the interface.
 
 Drag to look around, scroll to zoom, and click a celestial object for details. The left
-toolbar opens location, time, and display settings. Search is at the top; time stepping
+toolbar opens location, time, display settings, and exploration tools. Search is at the top; time stepping
 and forward/reverse playback are at the bottom. The time panel contains the 10,000-year
 timeline. Scene saving and PNG export are in the display panel.
 

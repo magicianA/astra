@@ -37,3 +37,14 @@ The sky uses the same rendering path as the interactive app. Export resolution
 follows the window's drawable size and display scale; another display may produce
 a different resolution. The tested Retina display renders the default 1440 × 900
 window at 2× scale. Each PNG export also writes a JSON file beside it.
+
+## Lunar surface preview
+
+`moon.png` and `moon.json` show the LRO-based lunar surface and terrain shadows.
+The exposure is intentionally set for the lunar surface; surrounding stars are
+below the display threshold. Capture with:
+
+```sh
+build/astra.app/Contents/MacOS/astra --scenario examples/moon-detail.json \
+  --hide-ui --frames 35 --screenshot docs/images/moon.png
+```

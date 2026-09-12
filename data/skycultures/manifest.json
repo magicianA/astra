@@ -1,0 +1,8 @@
+{
+  "id": "stellarium-western-014fbb5e59233d133c22f9811af96b67d05a95c9",
+  "source_sha256": "a861accd345249a185a5ecfc2a516f34291c0aa52f4bb8d8337ffc53e9cef6b9",
+  "runtime_sha256": {
+    "skycultures/LICENSE.md": "ed84a7050280acbaa39163479c4e46de6bebbdd627069bae094affbe3ea6719a",
+    "skycultures/western.json": "e58ad736489894ed3304c9a6259b73e096e102ac335ca2defb3f30af743ad6e8"
+  }
+}

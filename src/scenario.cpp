@@ -41,6 +41,14 @@ void validate(const Scenario& s) {
     if (s.atmosphere_preset < 0 || s.atmosphere_preset > 1) {
         throw std::invalid_argument("Unknown atmosphere preset");
     }
+    if (s.comparison_year < -3000 || s.comparison_year >= 7000) {
+        throw std::invalid_argument("Invalid comparison year");
+    }
+    for (const auto height : s.horizon.degrees) {
+        if (!std::isfinite(height) || height < -20 || height > 89) {
+            throw std::invalid_argument("Invalid horizon altitude");
+        }
+    }
     auto range = [](double x, double a, double b) {
         return std::isfinite(x) && x >= a && x <= b;
     };
@@ -63,7 +71,7 @@ void save_scenario(const Scenario& s,
                    double effective_exposure) {
     validate(s);
     nlohmann::json j = {
-        {"schema_version", 1},
+        {"schema_version", 2},
         {"data_id", id},
         {"background_id", background_id},
         {"date",
@@ -93,6 +101,15 @@ void save_scenario(const Scenario& s,
         {"labels", s.labels},
         {"projection", projection_name(s.projection)},
         {"milky_way", s.milky_way},
+        {"moon_surface", s.moon_surface},
+        {"earthshine", s.earthshine},
+        {"constellations", s.constellations},
+        {"constellation_labels", s.constellation_labels},
+        {"compare", s.compare},
+        {"comparison_year", s.comparison_year},
+        {"horizon", {{"name", s.horizon.name}, {"altitudes", s.horizon.degrees}}},
+        {"surface_model", "lro-lunar-v1"},
+        {"eclipse_model", "spherical-shadow-v1"},
         {"pressure", s.pressure},
         {"temperature", s.temperature},
         {"extinction", s.extinction},
@@ -136,7 +153,7 @@ Scenario load_scenario(const std::filesystem::path& p, const std::string& id) {
         throw std::runtime_error("Cannot open scenario");
     }
     auto j = nlohmann::json::parse(in);
-    if (j.at("schema_version") != 1) {
+    if (j.at("schema_version") != 1 && j.at("schema_version") != 2) {
         throw std::runtime_error("Unsupported scenario version");
     }
     if (!id.empty() && !j.value("data_id", "").empty() && j["data_id"] != id) {
@@ -149,6 +166,27 @@ Scenario load_scenario(const std::filesystem::path& p, const std::string& id) {
         throw std::runtime_error("Scenario background version differs from the installed map");
     }
     Scenario s;
+    const auto model = [&](const char* key,
+                           const char* current,
+                           std::initializer_list<const char*> legacy) {
+        const auto value = j.value(key, std::string{});
+        if (value == current) {
+            return;
+        }
+        if (!value.empty() && std::none_of(legacy.begin(), legacy.end(), [&](const char* old) {
+                return value == old;
+            })) {
+            throw std::runtime_error(std::string("Unsupported scene model: ") + key + "=" + value);
+        }
+        s.migrations.emplace_back(std::string(key) + ": " + (value.empty() ? "legacy" : value) +
+                                  " -> " + current);
+    };
+    model("photometry_model", photometry::model_id, {});
+    model("exposure_model", "hemisphere-moon-v3", {"hemisphere-moon-v1", "hemisphere-moon-v2"});
+    model("display_model", "colour-preserving-toe-v1", {});
+    if (background != background_id) {
+        s.migrations.emplace_back("background_id: " + background + " -> " + background_id);
+    }
     auto d = j.at("date");
     if (d.size() != 6) {
         throw std::runtime_error("Invalid date tuple");
@@ -187,6 +225,22 @@ Scenario load_scenario(const std::filesystem::path& p, const std::string& id) {
         s.fov = std::min(s.fov, maximum_fov(s.projection) / rad);
     }
     LOAD(milky_way);
+    LOAD(moon_surface);
+    LOAD(earthshine);
+    LOAD(constellations);
+    LOAD(constellation_labels);
+    LOAD(compare);
+    LOAD(comparison_year);
+    if (j.contains("horizon")) {
+        s.horizon.name = j.at("horizon").value("name", "");
+        const auto& altitudes = j.at("horizon").at("altitudes");
+        if (!altitudes.is_array() || altitudes.size() != Horizon::sample_count) {
+            throw std::invalid_argument("Invalid horizon sample count");
+        }
+        s.horizon.degrees = altitudes.get<decltype(s.horizon.degrees)>();
+    }
+    model("surface_model", "lro-lunar-v1", {});
+    model("eclipse_model", "spherical-shadow-v1", {});
     LOAD(pressure);
     LOAD(temperature);
     LOAD(extinction);

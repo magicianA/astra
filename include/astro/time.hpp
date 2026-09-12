@@ -23,6 +23,7 @@ struct JulianDate {
 struct CivilDate {
     int year = 2026, month = 9, day = 4, hour = 22, minute = 0;
     double second = 0;
+    bool operator==(const CivilDate&) const = default;
 };
 
 bool valid_date(const CivilDate&, bool julian = false);

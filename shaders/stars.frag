@@ -1,16 +1,25 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "atmosphere_render.glsl"
+#include "features.glsl"
 layout(location = 0) in vec2 local;
 layout(location = 1) flat in vec4 color;
 layout(location = 2) flat in vec4 shape;
+layout(location = 3) flat in vec3 centre;
+layout(location = 4) flat in vec3 tangentRight;
+layout(location = 5) flat in vec3 tangentUp;
 layout(location = 0) out vec4 outputColor;
 
 void main() {
     vec2 footprint = fwidth(local);
-    vec2 uv = gl_FragCoord.xy / p.viewport.zw;
-    if (outsideFisheye(uv) || (p.moonGround.w > .5 && skyDirection(uv).z < 0.)) {
+    vec2 uv = (gl_FragCoord.xy - features.viewport.xy) / p.viewport.zw;
+    if (outsideFisheye(uv) || terrainOccludes(skyDirection(uv))) {
         discard;
+    }
+    if (shape.x > 3.5) {
+        float edge = clamp((1. - abs(local.y)) / max(fwidth(local.y), .001), 0., 1.);
+        outputColor = vec4(color.rgb * color.a * edge, .45 * edge);
+        return;
     }
     float rr = dot(local, local);
     if (rr > 1. && shape.x < .5) {
@@ -47,7 +56,12 @@ void main() {
         // illuminance, including phase and distance. No separate Moon exposure.
         float shade = shape.x < 1.5 ? (.75 + .25 * z) / (11. / 12.)
                                     : illumination / max(1e-7, (2. / 3.) * lambertPhase);
-        vec3 surface = color.rgb * color.a * shade * transmittance * exposure;
+        vec3 surface = color.rgb * color.a * shade;
+        if (shape.x > 2.5) {
+            vec3 normal = normalize(local.x * tangentRight - local.y * tangentUp - z * centre);
+            surface = lunarSurface(moonFixed(normal), color.a, shape.y);
+        }
+        surface *= transmittance * exposure;
         outputColor = vec4(safeHdr(surface + foreground * exposure) * edge, edge);
     }
 }
