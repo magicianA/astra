@@ -32,6 +32,8 @@ struct Scenario {
 };
 
 void validate(const Scenario&);
+// Restore sky visibility after an atmosphere-free or manually exposed close-up.
+void restore_day_night(Scenario&);
 void save_scenario(const Scenario&,
                    const std::filesystem::path&,
                    const std::string& data_id = "",

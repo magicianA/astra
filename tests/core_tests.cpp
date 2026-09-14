@@ -371,6 +371,11 @@ int main(int argc, char** argv) {
         Scenario scene;
         scene.scale = TimeScale::UT1;
         scene.date = {2026, 9, 8, 4, 0, 0};
+        // Start in lunar-detail settings: twilight navigation must recover a
+        // visible atmosphere rather than carry its tiny fixed exposure along.
+        scene.atmosphere = false;
+        scene.auto_exposure = false;
+        scene.exposure = exp2(-18.);
         auto solar_altitude = [&](const Scenario& value) {
             auto sky = engine.compute(value, 0, nullptr, SkyEngine::Scope::SolarSystem);
             for (const auto& body : sky->bodies) {
@@ -381,9 +386,14 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Missing solar reference");
         };
         for (bool dawn : {false, true}) {
+            scene.adaptive_exposure = dawn;
             for (int direction : {-1, 1}) {
                 auto event = engine.twilight_view(scene, dawn, direction);
                 require(event.has_value(), "civil twilight found");
+                require(event->atmosphere && event->auto_exposure && event->exposure == 1,
+                        "twilight navigation restores day/night visibility after lunar detail");
+                require(event->adaptive_exposure == scene.adaptive_exposure,
+                        "twilight navigation retains the selected adaptive metering mode");
                 close(solar_altitude(*event), -6., .0003, "twilight uses geometric solar altitude");
                 const double seconds =
                     (to_jd(event->date).value() - to_jd(scene.date).value()) * 86400;

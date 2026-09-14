@@ -327,6 +327,16 @@ void draw_time(UiState& state, const UiFrame& frame, UiActions& actions) {
         state.playing = false;
     }
     ImGui::Spacing();
+    if (!scene.atmosphere) {
+        ImGui::TextWrapped("%s", tr("大气已关闭，白天也会显示星空。"));
+    }
+    if (ImGui::Button(tr("恢复昼夜变化"), {-1, 32})) {
+        restore_day_night(scene);
+        actions.recompute = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", tr("启用大气与自动曝光，曝光补偿恢复为 0 EV。"));
+    }
     if (frame.sky) {
         for (const auto& body : frame.sky->bodies) {
             if (body.body != 10) {
@@ -370,8 +380,18 @@ void draw_display(UiState& state, const UiFrame& frame, UiActions& actions) {
     }
     ImGui::Spacing();
     actions.recompute |= ImGui::Checkbox(tr("大气与晨昏"), &scene.atmosphere);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", tr("关闭后不渲染大气，白天也会显示星空。"));
+    }
     ImGui::SameLine(162);
     actions.recompute |= ImGui::Checkbox(tr("地面"), &scene.ground);
+    if (!scene.atmosphere) {
+        ImGui::TextWrapped("%s", tr("大气已关闭，白天也会显示星空。"));
+        if (ImGui::Button(tr("恢复昼夜变化"), {-1, 32})) {
+            restore_day_night(scene);
+            actions.recompute = true;
+        }
+    }
     ImGui::Checkbox(tr("天体名称"), &scene.labels);
     ImGui::SameLine(162);
     ImGui::Checkbox(tr("坐标网"), &scene.grid);

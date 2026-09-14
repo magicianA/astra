@@ -13,6 +13,10 @@ time standards and scene files. Windows and Linux remain untested.
 sets a fixed exposure of −18 EV relative to the normal night-sky exposure. Use the
 View panel to restore automatic exposure and EV 0 for a wide night view. A Moon
 exposed for surface detail naturally leaves most surrounding stars invisible.
+**Time → Restore day & night** enables atmospheric rendering and automatic exposure
+at 0 EV; previous/next dawn and dusk perform the same reset. The optional adaptive
+metering mode is preserved. `examples/adaptive-moon.json` keeps the atmosphere enabled
+at a nighttime observing instant, so daylight returns naturally during playback.
 
 The renderer maps the [NASA CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/) onto a
 sphere: 4096 × 2048 LROC colour, resampled LOLA heights, terrain normals and sampled

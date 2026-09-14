@@ -19,6 +19,10 @@ you pan or zoom. It adjusts smoothly, preserves a dark night sky, and can expose
 resolved lunar detail. Enabling it resets compensation to 0 EV; the slider remains
 available for adjustment. This optional mode overrides whole-sky automatic exposure
 and is saved with the scene. Try `examples/adaptive-moon.json`.
+This example observes the Moon at night with the atmosphere enabled. If a custom
+scene leaves the sky black during daylight, choose **Time → Restore day & night**
+to restore atmosphere and automatic exposure at 0 EV. Dawn/dusk shortcuts also
+restore these settings.
 
 ![Stars and the Milky Way above the faint glow of twilight in Astra](docs/images/dusk.png)
 

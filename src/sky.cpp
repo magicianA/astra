@@ -637,7 +637,8 @@ std::optional<Scenario> SkyEngine::twilight_view(const Scenario& initial,
             candidate.roll = 0;
             candidate.fov = default_camera_fov / rad;
             candidate.projection = ProjectionKind::Perspective;
-            candidate.atmosphere = candidate.ground = true;
+            restore_day_night(candidate);
+            candidate.ground = true;
             return candidate;
         }
         previous = current;

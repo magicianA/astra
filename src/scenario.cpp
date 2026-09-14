@@ -64,6 +64,12 @@ void validate(const Scenario& s) {
     }
 }
 
+void restore_day_night(Scenario& s) {
+    s.atmosphere = true;
+    s.auto_exposure = true;
+    s.exposure = 1;
+}
+
 void save_scenario(const Scenario& s,
                    const std::filesystem::path& p,
                    const std::string& id,
