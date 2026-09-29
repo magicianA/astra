@@ -7,6 +7,7 @@ import os
 import numpy as np
 from bootstrap import ROOT, digest, download
 from PIL import Image
+from rust_calibration import write_background
 
 SOURCE_PAGE = "https://svs.gsfc.nasa.gov/4851/"
 SOURCE_URL = "https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/milkyway_2020_16k_gal.exr"
@@ -106,6 +107,7 @@ def calibrate(image):
         f"inline constexpr float background_radiance_scale = {scale:.12f}f;\n"
         "} // namespace astro\n"
     )
+    write_background(scale)
     return report
 
 

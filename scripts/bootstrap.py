@@ -82,18 +82,8 @@ def extract(archive, destination):
 
 
 def dependencies():
-    archive = download(
-        "third_party/imgui.tar.gz",
-        "https://codeload.github.com/ocornut/imgui/tar.gz/refs/tags/v1.91.9b",
-        "8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb",
-    )
-    if not (ROOT / "third_party/imgui-1.91.9b/imgui.cpp").exists():
-        extract(archive, ROOT / "third_party")
-    download(
-        "third_party/json.hpp",
-        "https://raw.githubusercontent.com/nlohmann/json/v3.12.0/single_include/nlohmann/json.hpp",
-        "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
-    )
+    # Cargo.lock owns Rust dependencies. Only the native CSPICE toolkit needs
+    # this platform-specific bootstrap; ERFA is installed separately.
     platforms = {
         ("Darwin", "arm64"): "MacM1_OSX_clang_64bit",
         ("Darwin", "x86_64"): "MacIntel_OSX_AppleC_64bit",
@@ -125,8 +115,7 @@ def dependencies():
     (ROOT / "third_party/dependencies-lock.json").write_text(
         json.dumps(
             {
-                "imgui": "1.91.9b",
-                "json": "3.12.0",
+                "rust_dependencies": "Cargo.lock",
                 "cspice": "N0067",
                 "cspice_platform": platforms[key],
                 "cspice_sha256": digest(archive),
@@ -148,9 +137,11 @@ def kernels():
 
 def assets():
     glyphs = set()
-    for folder in ("src", "include"):
+    # Include the retained reference sources so existing CJK glyphs remain a
+    # superset while the Rust application's main/explore/i18n text is added.
+    for folder in ("rust", "src", "include"):
         for source in (ROOT / folder).rglob("*"):
-            if source.suffix in (".cpp", ".hpp"):
+            if source.suffix in (".rs", ".cpp", ".hpp"):
                 glyphs.update(c for c in source.read_text() if 127 < ord(c) < 0x10000)
     (ROOT / "data/fonts").mkdir(parents=True, exist_ok=True)
     (ROOT / "data/fonts/ui-glyphs.txt").write_text("".join(sorted(glyphs)) + "\n")

@@ -5,6 +5,7 @@ import argparse
 import json
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -44,9 +45,9 @@ def dependencies(binary):
 def package(build, destination):
     if platform.system() != "Darwin":
         raise RuntimeError("This packaging script targets macOS only")
-    source = build / "astra.app"
-    if not source.exists():
-        raise RuntimeError(f"Build the application first: {source}")
+    source = build / "astra"
+    if not source.is_file():
+        raise RuntimeError(f"Build the application first with cargo build --release: {source}")
     manifest = json.loads((ROOT / "data/catalog/manifest.json").read_text())
     for name, expected in manifest["runtime_sha256"].items():
         if digest(ROOT / "data" / name) != expected:
@@ -70,12 +71,14 @@ def package(build, destination):
                 "Automatic replacement is restricted to this project's dist/Astra.app"
             )
         shutil.rmtree(destination)
-    shutil.copytree(source, destination)
     contents = destination / "Contents"
     resources = contents / "Resources"
     frameworks = contents / "Frameworks"
+    resources.mkdir(parents=True, exist_ok=True)
     frameworks.mkdir(parents=True, exist_ok=True)
     executable = contents / "MacOS/astra"
+    copy_file(source, executable)
+    executable.chmod(executable.stat().st_mode | 0o111)
     brew = Path(run("brew", "--prefix").strip())
     bundled = {}
 
@@ -120,7 +123,12 @@ def package(build, destination):
                 [tool("install_name_tool"), "-change", dependency, new, str(target)], check=True
             )
 
-    rewrite(executable, source / "Contents/MacOS/astra")
+    rewrite(executable, source)
+    # ash loads the Vulkan loader dynamically, so it does not appear in otool -L.
+    vulkan = brew / "lib/libvulkan.dylib"
+    if not vulkan.is_file():
+        raise RuntimeError("Missing Vulkan loader; install vulkan-loader with Homebrew")
+    bundle_library(vulkan, "libvulkan.dylib")
     molten = brew / "opt/molten-vk/lib/libMoltenVK.dylib"
     bundle_library(molten, "libMoltenVK.dylib")
     icd_source = brew / "opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json"
@@ -156,19 +164,30 @@ def package(build, destination):
         shutil.copytree(ROOT / "data" / folder, resources / "data" / folder, dirs_exist_ok=True)
     copy_file(ROOT / "docs/EXPLORATION.md", resources / "EXPLORATION.md")
     shutil.copytree(ROOT / "examples", resources / "examples", dirs_exist_ok=True)
-    shutil.copytree(build / "shaders", resources / "shaders", dirs_exist_ok=True)
+    # Cargo embeds compiled SPIR-V shaders directly in the Rust executable.
+    copy_file(ROOT / "assets/macos/Astra.icns", resources / "Astra.icns")
+    for locale in ("en", "zh-Hans"):
+        copy_file(
+            ROOT / "assets/macos" / f"{locale}.lproj/InfoPlist.strings",
+            resources / f"{locale}.lproj/InfoPlist.strings",
+        )
     copy_file(ROOT / "THIRD_PARTY_NOTICES.md", resources / "THIRD_PARTY_NOTICES.md")
     copy_file(ROOT / "docs/PHOTOMETRY.md", resources / "PHOTOMETRY.md")
     shutil.copytree(ROOT / "data/licenses", resources / "licenses", dirs_exist_ok=True)
     plist_path = contents / "Info.plist"
-    with plist_path.open("rb") as stream:
-        plist = plistlib.load(stream)
-    plist.update(
+    version = re.search(
+        r'^version\s*=\s*"([^"]+)"', (ROOT / "Cargo.toml").read_text(), re.MULTILINE
+    ).group(1)
+    plist = dict(
+        CFBundleExecutable="astra",
+        CFBundleIdentifier="local.astra.sky",
+        CFBundlePackageType="APPL",
+        CFBundleIconFile="Astra.icns",
         CFBundleDisplayName="Astra",
         CFBundleName="Astra",
         CFBundleDevelopmentRegion="en",
         CFBundleLocalizations=["en", "zh-Hans"],
-        CFBundleShortVersionString="0.1.0",
+        CFBundleShortVersionString=version,
         CFBundleVersion="1",
         NSHighResolutionCapable=True,
         LSMinimumSystemVersion="26.0",
@@ -188,7 +207,12 @@ def package(build, destination):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--build", type=Path, default=ROOT / "build")
+    parser.add_argument(
+        "--build",
+        type=Path,
+        default=ROOT / "target/release",
+        help="Cargo directory containing the release astra executable",
+    )
     args = parser.parse_args()
     package(args.build.resolve(), ROOT / "dist/Astra.app")
 
