@@ -19,6 +19,14 @@ def main():
     text = (ROOT / "include/astro/twilight_calibration.hpp").read_text()
     gains = np.array([float(n) for n in re.findall(r"-?\d+\.\d+", text.split("= {")[1])])
     assert len(gains) == 401
+    rust = (ROOT / "rust/calibration.rs").read_text()
+    rust_gains = np.array(
+        [
+            float(n)
+            for n in re.findall(r"-?\d+\.\d+", rust.split("TWILIGHT_LOG_GAIN: [f64; 401] = [")[1])
+        ]
+    )
+    assert np.array_equal(gains, rust_gains), "Rust twilight calibration is out of sync"
     zero = 2.54e-6 / (math.pi / 648000) ** 2
     residuals = []
     for depression in np.linspace(5.0125, 14.9875, 400):
@@ -35,6 +43,8 @@ def main():
     validation = np.array(calibration["relative_residual"])[ids]
     assert np.max(np.abs(validation)) < 0.3, "Regional Galactic normalization regressed"
     scale = calibration["radiance_scale_cd_m2"]
+    rust_scale = float(re.search(r"BACKGROUND_RADIANCE_SCALE: f32 = ([\d.]+);", rust)[1])
+    assert abs(rust_scale - scale) <= 0.5e-12, "Rust background calibration is out of sync"
     # Keep analysis on native texels; stride bounds memory without filtering.
     Image.MAX_IMAGE_PIXELS = 16384 * 8192
     image = (

@@ -1,6 +1,7 @@
 # Rendered scenes
 
-These PNGs are direct, unedited exports from Astra's Vulkan renderer, captured on
+These PNGs are direct, unedited exports from the original Astra Vulkan renderer,
+captured before the Rust migration on
 an Apple M4 Pro through MoltenVK. Each image is 2880 × 1800 pixels. The original
 pixels are preserved: no cropping, compositing, or color adjustments were applied
 after export. PNG assets are stored with Git LFS.
@@ -20,23 +21,25 @@ The first image looks southwest during late astronomical twilight, with the Sun
 horizon, all rendered together in one frame. The shared photometric calibration
 and colour-preserving display mapping are described in [Brightness calibration](../PHOTOMETRY.md).
 
-After building from the repository root, reproduce the images on macOS:
+After building the Rust application from the repository root, render the same scenes
+on macOS. These commands use explicit output dimensions and do not open a window;
+pixel-identical output to the historical captures is not claimed:
 
 ```sh
 VK_DRIVER_FILES=/opt/homebrew/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json \
-build/astra.app/Contents/MacOS/astra --hide-ui --frames 80 \
+target/release/astra --headless --width 2880 --height 1800 \
   --scenario docs/images/dusk.json --screenshot artifacts/dusk.png
 
 VK_DRIVER_FILES=/opt/homebrew/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json \
-build/astra.app/Contents/MacOS/astra --hide-ui --frames 80 \
+target/release/astra --headless --width 2880 --height 1800 \
   --scenario docs/images/milky-way.json --screenshot artifacts/milky-way.png
 ```
 
-`--hide-ui` omits all ImGui draw data, including panels, labels, and overlay hints.
-The sky uses the same rendering path as the interactive app. Export resolution
-follows the window's drawable size and display scale; another display may produce
-a different resolution. The tested Retina display renders the default 1440 × 900
-window at 2× scale. Each PNG export also writes a JSON file beside it.
+Rust PNG exports contain the Vulkan sky layer, omitting egui panels, labels, grid
+lines, and overlay hints regardless of `--hide-ui`. The sky uses the same Vulkan
+pipelines as the interactive app. `--width` and `--height` determine headless output
+resolution; interactive export follows the sky viewport's drawable size and display
+scale. Each PNG export also writes a scene JSON file beside it.
 
 ## Lunar surface preview
 
@@ -45,6 +48,6 @@ The exposure is intentionally set for the lunar surface; surrounding stars are
 below the display threshold. Capture with:
 
 ```sh
-build/astra.app/Contents/MacOS/astra --scenario examples/moon-detail.json \
-  --hide-ui --frames 35 --screenshot docs/images/moon.png
+target/release/astra --scenario examples/moon-detail.json \
+  --headless --width 2880 --height 1800 --screenshot artifacts/moon.png
 ```

@@ -1,0 +1,42 @@
+[package]
+name = "astra"
+version = "0.2.0"
+edition = "2024"
+default-run = "astra"
+build = "rust/build.rs"
+
+[lib]
+name = "astro"
+path = "rust/lib.rs"
+
+[[bin]]
+name = "astra"
+path = "rust/main.rs"
+required-features = ["desktop"]
+
+[[bin]]
+name = "astra_cli"
+path = "rust/cli.rs"
+
+[[bin]]
+name = "astra_atmosphere"
+path = "rust/atmosphere_cli.rs"
+required-features = ["gpu"]
+
+[features]
+default = ["desktop"]
+gpu = ["dep:ash", "dep:bytemuck"]
+desktop = ["gpu", "dep:eframe"]
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+image = { version = "0.25", default-features = false, features = ["png"] }
+ash = { version = "0.38", optional = true }
+bytemuck = { version = "1.25", features = ["derive"], optional = true }
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"], optional = true }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

@@ -23,6 +23,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+    cargo = executable("cargo", [Path.home() / ".cargo/bin/cargo"])
+    subprocess.run(
+        [cargo, "fmt", "--all", *(["--", "--check"] if args.check else [])],
+        check=True,
+        cwd=ROOT,
+    )
     clang_format = executable(
         "clang-format",
         [
@@ -32,9 +38,9 @@ def main():
     )
     sources = sorted(
         path
-        for folder in ("src", "include", "tests", "shaders")
+        for folder in ("shaders",)
         for path in (ROOT / folder).rglob("*")
-        if path.suffix in (".cpp", ".hpp", ".vert", ".frag", ".glsl", ".comp")
+        if path.suffix in (".vert", ".frag", ".glsl", ".comp")
     )
     subprocess.run(
         [clang_format, *(["--dry-run", "--Werror"] if args.check else ["-i"]), *map(str, sources)],
@@ -48,11 +54,6 @@ def main():
     )
     subprocess.run(
         [executable("ruff"), "format", *(["--check"] if args.check else []), "scripts"],
-        check=True,
-        cwd=ROOT,
-    )
-    subprocess.run(
-        [executable("cmake-format"), "--check" if args.check else "-i", "CMakeLists.txt"],
         check=True,
         cwd=ROOT,
     )

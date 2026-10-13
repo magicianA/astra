@@ -85,7 +85,7 @@ def main():
     output = ROOT / "artifacts/greenwich-2026.json"
     subprocess.run(
         [
-            str(ROOT / "build/astra_cli"),
+            str(ROOT / "target/release/astra_cli"),
             "--date",
             fixture["date_utc"],
             "--site",
